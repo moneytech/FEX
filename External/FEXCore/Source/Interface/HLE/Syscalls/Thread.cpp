@@ -95,20 +95,20 @@ namespace FEXCore::HLE {
     }
 
     LogMan::Msg::D("Time to spin up fork thread with Stack: 0x%lx\n", stack);
-    auto NewThread = CreateNewThread(Thread, flags, stack, 0, child_tid, tls);
+    //auto NewThread = CreateNewThread(Thread, flags, stack, 0, child_tid, tls);
 
-    NewThread->State.State.gregs[FEXCore::X86State::REG_RAX] = 0;
+    //NewThread->State.State.gregs[FEXCore::X86State::REG_RAX] = 0;
     // Return the new threads TID
-    uint64_t Result = NewThread->State.ThreadManager.GetTID();
-    LogMan::Msg::D("Child [%d] starting at: 0x%lx. Parent was at 0x%lx", Result, NewThread->State.State.rip, Thread->State.State.rip);
+    //uint64_t Result = NewThread->State.ThreadManager.GetTID();
+    //LogMan::Msg::D("Child [%d] starting at: 0x%lx. Parent was at 0x%lx", Result, NewThread->State.State.rip, Thread->State.State.rip);
 
     // Actually start the thread
-    Thread->CTX->RunThread(NewThread);
+    //Thread->CTX->RunThread(NewThread);
 
     // This thread needs to die now
     // New thread becomes the new thread
-    Thread->State.ThreadManager.parent_tid = ~0ULL;
-    Thread->State.RunningEvents.ShouldStop = true;
+    //Thread->State.ThreadManager.parent_tid = ~0ULL;
+    //Thread->State.RunningEvents.ShouldStop = true;
 
     return 0;
   }
@@ -116,7 +116,7 @@ namespace FEXCore::HLE {
 
   void RegisterThread() {
     REGISTER_SYSCALL_IMPL(getpid, [](FEXCore::Core::InternalThreadState *Thread) -> uint64_t {
-  #if 1
+  #if 0
       uint64_t Result = Thread->CTX->GetPIDHack();
       if (Result == ~0ULL) {
         Result = ::getpid();
@@ -189,7 +189,31 @@ namespace FEXCore::HLE {
 
     REGISTER_SYSCALL_IMPL(execve, [](FEXCore::Core::InternalThreadState *Thread, const char *pathname, char *const argv[], char *const envp[]) -> uint64_t {
       // XXX: Disallow execve for now
-      return -ENOEXEC;
+      std::vector<const char*> ArgV;
+      ArgV.push_back("ELFLoader");
+      ArgV.push_back("-c");
+      ArgV.push_back("irjit");
+      ArgV.push_back("--");
+
+      ArgV.push_back(pathname);
+
+      for (int i = 0; argv[i]; i++) {
+        if (i == 0)
+          continue;
+        ArgV.push_back(argv[i]);
+      }
+
+      ArgV.push_back(nullptr);
+
+      char *const *Vargv = const_cast<char *const *>(&ArgV[0]);
+
+      for (int i = 0; Vargv[i]; i++) {
+        //printf("%s\n", Vargv[i]);
+      }
+
+      uint64_t Result = execve("/home/skmp/projects/FEX/build/Bin/ELFLoader", Vargv, envp);
+
+      SYSCALL_ERRNO();
     });
 
     REGISTER_SYSCALL_IMPL(exit, [](FEXCore::Core::InternalThreadState *Thread, int status) -> uint64_t {

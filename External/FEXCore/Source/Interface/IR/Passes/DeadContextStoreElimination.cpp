@@ -1,6 +1,9 @@
+#include "Interface/IR/Passes.h"
 #include "Interface/IR/PassManager.h"
 #include "Interface/Core/OpcodeDispatcher.h"
 #include <FEXCore/Core/CoreState.h>
+
+#define VerboseLog(...)
 
 namespace {
   struct ContextMemberClassification {
@@ -246,12 +249,14 @@ class RCLSE final : public FEXCore::IR::Pass {
 public:
   RCLSE() {
     ClassifyContextStruct(&ClassifiedStruct);
+    DCE = FEXCore::IR::CreatePassDeadCodeElimination();
   }
   bool Run(FEXCore::IR::IREmitter *IREmit) override;
 private:
   ContextInfo ClassifiedStruct;
   std::unordered_map<FEXCore::IR::OrderedNodeWrapper::NodeOffsetType, BlockInfo> OffsetToBlockMap;
 
+  FEXCore::IR::Pass* DCE;
   ContextMemberInfo *FindMemberInfo(ContextInfo *ClassifiedInfo, uint32_t Offset, uint8_t Size);
   ContextMemberInfo *RecordAccess(ContextMemberInfo *Info, FEXCore::IR::RegisterClassType RegClass, uint32_t Offset, uint8_t Size, LastAccessType AccessType, FEXCore::IR::OrderedNode *Node, FEXCore::IR::OrderedNode *StoreNode = nullptr);
   ContextMemberInfo *RecordAccess(ContextInfo *ClassifiedInfo, FEXCore::IR::RegisterClassType RegClass, uint32_t Offset, uint8_t Size, LastAccessType AccessType, FEXCore::IR::OrderedNode *Node, FEXCore::IR::OrderedNode *StoreNode = nullptr);
@@ -482,6 +487,7 @@ bool RCLSE::RedundantStoreLoadElimination(FEXCore::IR::IREmitter *IREmit) {
           // Happens when we store in to a location then store again
           IREmit->Remove(LastStoreNode);
           Changed = true;
+          VerboseLog("WaW");
         }
       }
       else if (IROp->Op == OP_LOADCONTEXT) {
@@ -532,6 +538,7 @@ bool RCLSE::RedundantStoreLoadElimination(FEXCore::IR::IREmitter *IREmit) {
           IREmit->ReplaceAllUsesWithInclusive(CodeNode, LastNode, CodeBegin, CodeLast);
           RecordAccess(Info, Op->Class, Op->Offset, IROp->Size, ACCESS_READ, LastNode);
           Changed = true;
+          VerboseLog("RaW");
         }
         else if ((LastAccess == ACCESS_READ || LastAccess == ACCESS_PARTIAL_READ) &&
                  LastClass == Op->Class &&
@@ -542,6 +549,7 @@ bool RCLSE::RedundantStoreLoadElimination(FEXCore::IR::IREmitter *IREmit) {
           IREmit->ReplaceAllUsesWithInclusive(CodeNode, LastNode, CodeBegin, CodeLast);
           RecordAccess(Info, Op->Class, Op->Offset, IROp->Size, ACCESS_READ, LastNode);
           Changed = true;
+          VerboseLog("RaR");
         }
       }
       else if (IROp->Op == OP_STOREFLAG) {
@@ -555,6 +563,7 @@ bool RCLSE::RedundantStoreLoadElimination(FEXCore::IR::IREmitter *IREmit) {
         {
           IREmit->Remove(LastStoreNode);
           Changed = true;
+          VerboseLog("FWaW");
         }
       }
       else if (IROp->Op == OP_LOADFLAG) {
@@ -570,11 +579,13 @@ bool RCLSE::RedundantStoreLoadElimination(FEXCore::IR::IREmitter *IREmit) {
           IREmit->ReplaceAllUsesWithInclusive(CodeNode, Res, CodeBegin, CodeLast);
           RecordAccess(Info, FEXCore::IR::GPRClass, offsetof(FEXCore::Core::CPUState, flags[0]) + Op->Flag, 1, ACCESS_READ, LastNode);
           Changed = true;
+          VerboseLog("FRaW");
         }
         else if (LastAccess == ACCESS_READ) {
           IREmit->ReplaceAllUsesWithInclusive(CodeNode, LastNode, CodeBegin, CodeLast);
           RecordAccess(Info, FEXCore::IR::GPRClass, offsetof(FEXCore::Core::CPUState, flags[0]) + Op->Flag, 1, ACCESS_READ, LastNode);
           Changed = true;
+          VerboseLog("FRaR");
         }
       }
       else if (IROp->Op == OP_STORECONTEXTINDEXED ||
@@ -608,7 +619,14 @@ bool RCLSE::Run(FEXCore::IR::IREmitter *IREmit) {
   // XXX: We don't do cross-block optimizations yet
   //CalculateControlFlowInfo(IREmit);
   bool Changed = false;
-  Changed |= RedundantStoreLoadElimination(IREmit);
+  
+  VerboseLog("Start!");
+  while(RedundantStoreLoadElimination(IREmit)) {
+    Changed = true;
+    DCE->Run(IREmit);
+    VerboseLog("%p: Changed, Re-running\n", this);
+  }
+
 
   return Changed;
 }

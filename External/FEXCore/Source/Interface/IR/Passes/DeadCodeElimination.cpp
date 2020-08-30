@@ -54,6 +54,26 @@ bool DeadCodeElimination::Run(IREmitter *IREmit) {
         }
       }
 
+      //And, OR with itself are NOPS
+      if (IROp->Op == OP_AND || IROp->Op == OP_OR) {
+        auto Op = IROp->CW<IR::IROp_And>();
+
+        if (Op->Header.Args[0].ID() == Op->Header.Args[1].ID()) {
+          //printf("AND/OR IDD\n");
+          IREmit->ReplaceAllUsesWithInclusive(CodeNode, Op->Header.Args[0].GetNode(ListBegin), CodeLast, CodeEnd);
+        }
+      }
+
+      if (IROp->Op == OP_XOR) {
+        auto Op = IROp->CW<IR::IROp_And>();
+
+        if (Op->Header.Args[0].ID() == Op->Header.Args[1].ID()) {
+          //printf("XOR IDD\n");
+          IREmit->SetWriteCursor(CodeNode);
+          IREmit->ReplaceAllUsesWithInclusive(CodeNode, IREmit->_Constant(0), CodeLast, CodeEnd);
+        }
+      }
+
       // Skip over anything that has side effects
       // Use count tracking can't safely remove anything with side effects
       if (!IR::HasSideEffects(IROp->Op)) {

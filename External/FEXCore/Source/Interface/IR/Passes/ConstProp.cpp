@@ -38,11 +38,26 @@ bool ConstProp::Run(IREmitter *IREmit) {
     // We grab these nodes this way so we can iterate easily
     auto CodeBegin = CurrentIR.at(BlockIROp->Begin);
     auto CodeLast = CurrentIR.at(BlockIROp->Last);
+    std::map<uint64_t, OrderedNode*> consts;
+    
     while (1) {
       auto CodeOp = CodeBegin();
       OrderedNode *CodeNode = CodeOp->GetNode(ListBegin);
       auto IROp = CodeNode->Op(DataBegin);
       switch (IROp->Op) {
+
+      case OP_CONSTANT: {
+        auto Op = IROp->C<IR::IROp_Constant>();
+        if (consts.count(Op->Constant)) {
+          IREmit->ReplaceAllUsesWithInclusive(CodeNode, consts[Op->Constant], CodeBegin, CodeLast);
+          IREmit->Remove(CodeNode);
+          Changed = true;
+        }
+        else {
+          consts[Op->Constant] = CodeNode;
+        }
+        break;
+      }
 /*
       case OP_UMUL:
       case OP_DIV:

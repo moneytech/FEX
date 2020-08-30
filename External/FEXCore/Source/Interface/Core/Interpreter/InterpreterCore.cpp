@@ -30,7 +30,11 @@ using DestMapType = std::vector<uint32_t>;
 class InterpreterCore final : public CPUBackend {
 public:
   explicit InterpreterCore(FEXCore::Context::Context *ctx);
-  ~InterpreterCore() override = default;
+  ~InterpreterCore() override {
+    for (int i = 0; i < IR::OP_LAST; i++) {
+      printf("%lu %lu %s perf_runs\n", Runs[i], Runs_Imm[i], std::string(IR::GetName((IR::IROps)i)).c_str());
+    }
+  }
   std::string GetName() override { return "Interpreter"; }
   void *CompileCode(FEXCore::IR::IRListView<true> const *IR, FEXCore::Core::DebugData *DebugData) override;
 
@@ -40,6 +44,9 @@ public:
 
   void ExecuteCode(FEXCore::Core::InternalThreadState *Thread);
 private:
+  uint64_t Runs[IR::OP_LAST + 1] = { 0 };
+  uint64_t Runs_Imm[IR::OP_LAST + 1] = { 0 };
+
   FEXCore::Context::Context *CTX;
   uint32_t AllocateTmpSpace(size_t Size);
 
@@ -178,6 +185,8 @@ void InterpreterCore::ExecuteCode(FEXCore::Core::InternalThreadState *Thread) {
           // Clear any previous results
           memset(GDP, 0, 16);
         }
+
+        Runs[IROp->Op]++;
 
         switch (IROp->Op) {
           case IR::OP_DUMMY:
@@ -687,6 +696,8 @@ void InterpreterCore::ExecuteCode(FEXCore::Core::InternalThreadState *Thread) {
             auto Op = IROp->C<IR::IROp_Add>();
             void *Src1 = GetSrc<void*>(Op->Header.Args[0]);
             void *Src2 = GetSrc<void*>(Op->Header.Args[1]);
+            if (Op->Header.Args[1].GetNode(ListBegin)->Op(DataBegin)->Op == OP_CONSTANT)
+              Runs_Imm[IROp->Op]++;
             auto Func = [](auto a, auto b) { return a + b; };
 
             switch (OpSize) {
@@ -700,6 +711,8 @@ void InterpreterCore::ExecuteCode(FEXCore::Core::InternalThreadState *Thread) {
             auto Op = IROp->C<IR::IROp_Sub>();
             void *Src1 = GetSrc<void*>(Op->Header.Args[0]);
             void *Src2 = GetSrc<void*>(Op->Header.Args[1]);
+            if (Op->Header.Args[1].GetNode(ListBegin)->Op(DataBegin)->Op == OP_CONSTANT)
+              Runs_Imm[IROp->Op]++;
             auto Func = [](auto a, auto b) { return a - b; };
 
             switch (OpSize) {
@@ -743,6 +756,9 @@ void InterpreterCore::ExecuteCode(FEXCore::Core::InternalThreadState *Thread) {
             auto Op = IROp->C<IR::IROp_And>();
             void *Src1 = GetSrc<void*>(Op->Header.Args[0]);
             void *Src2 = GetSrc<void*>(Op->Header.Args[1]);
+            if (Op->Header.Args[1].GetNode(ListBegin)->Op(DataBegin)->Op == OP_CONSTANT)
+              Runs_Imm[IROp->Op]++;
+            
             auto Func = [](auto a, auto b) { return a & b; };
 
             switch (OpSize) {
@@ -758,6 +774,8 @@ void InterpreterCore::ExecuteCode(FEXCore::Core::InternalThreadState *Thread) {
             auto Op = IROp->C<IR::IROp_Xor>();
             void *Src1 = GetSrc<void*>(Op->Header.Args[0]);
             void *Src2 = GetSrc<void*>(Op->Header.Args[1]);
+            if (Op->Header.Args[1].GetNode(ListBegin)->Op(DataBegin)->Op == OP_CONSTANT)
+              Runs_Imm[IROp->Op]++;
             auto Func = [](auto a, auto b) { return a ^ b; };
 
             switch (OpSize) {
@@ -789,6 +807,9 @@ void InterpreterCore::ExecuteCode(FEXCore::Core::InternalThreadState *Thread) {
             auto Op = IROp->C<IR::IROp_Lshr>();
             uint64_t Src1 = *GetSrc<uint64_t*>(Op->Header.Args[0]);
             uint64_t Src2 = *GetSrc<uint64_t*>(Op->Header.Args[1]);
+            if (Op->Header.Args[1].GetNode(ListBegin)->Op(DataBegin)->Op == OP_CONSTANT)
+              Runs_Imm[IROp->Op]++;
+
             uint8_t Mask = OpSize * 8 - 1;
             GD = Src1 >> (Src2 & Mask);
             break;

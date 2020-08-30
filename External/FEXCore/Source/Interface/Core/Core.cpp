@@ -893,7 +893,7 @@ namespace FEXCore::Context {
     --IdleWaitRefCount;
     IdleWaitCV.notify_all();
 
-    HandleExit(Thread);
+    //HandleExit(Thread);
 
     SignalDelegation.UninstallTLSState(Thread);
 

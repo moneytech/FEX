@@ -8,6 +8,12 @@ public:
   bool Run(IREmitter *IREmit) override;
 };
 
+struct FlagInfo {
+  uint32_t reads { 0 };
+  uint32_t writes { 0 };
+  uint32_t kill { 0 };
+};
+
 /**
  * @brief (UNSAFE) This pass removes flag calculations that will otherwise be unused INSIDE of that block
  *
@@ -20,7 +26,7 @@ public:
  *
  */
 bool DeadFlagCalculationEliminination::Run(IREmitter *IREmit) {
-  std::array<OrderedNode*, 32> LastValidFlagStores{};
+  std::map<OrderedNode*, FlagInfo> FlagMap;
 
   bool Changed = false;
   auto CurrentIR = IREmit->ViewIR();
@@ -34,52 +40,127 @@ bool DeadFlagCalculationEliminination::Run(IREmitter *IREmit) {
   auto HeaderOp = RealNode->Op(DataBegin)->CW<FEXCore::IR::IROp_IRHeader>();
   LogMan::Throw::A(HeaderOp->Header.Op == OP_IRHEADER, "First op wasn't IRHeader");
 
-  OrderedNode *BlockNode = HeaderOp->Blocks.GetNode(ListBegin);
+  {
+    OrderedNode *BlockNode = HeaderOp->Blocks.GetNode(ListBegin);
 
-  while (1) {
-    auto BlockIROp = BlockNode->Op(DataBegin)->CW<FEXCore::IR::IROp_CodeBlock>();
-    LogMan::Throw::A(BlockIROp->Header.Op == OP_CODEBLOCK, "IR type failed to be a code block");
-
-    // We grab these nodes this way so we can iterate easily
-    auto CodeBegin = CurrentIR.at(BlockIROp->Begin);
-    auto CodeLast = CurrentIR.at(BlockIROp->Last);
     while (1) {
-      auto CodeOp = CodeBegin();
-      OrderedNode *CodeNode = CodeOp->GetNode(ListBegin);
-      auto IROp = CodeNode->Op(DataBegin);
+      auto BlockIROp = BlockNode->Op(DataBegin)->CW<FEXCore::IR::IROp_CodeBlock>();
+      LogMan::Throw::A(BlockIROp->Header.Op == OP_CODEBLOCK, "IR type failed to be a code block");
 
-      if (IROp->Op == OP_STOREFLAG) {
-        auto Op = IROp->CW<IR::IROp_StoreFlag>();
-        // Set this node as the last one valid for this flag
-        LastValidFlagStores[Op->Flag] = CodeNode;
-      }
-      else if (IROp->Op == OP_LOADFLAG) {
-        auto Op = IROp->CW<IR::IROp_LoadFlag>();
-        LastValidFlagStores[Op->Flag] = nullptr;
+      // We grab these nodes this way so we can iterate easily
+      auto CodeBegin = CurrentIR.at(BlockIROp->Begin);
+      auto CodeLast = CurrentIR.at(BlockIROp->Last);
+      while (1) {
+        auto CodeOp = CodeBegin();
+        OrderedNode *CodeNode = CodeOp->GetNode(ListBegin);
+        auto IROp = CodeNode->Op(DataBegin);
+
+        if (IROp->Op == OP_STOREFLAG) {
+          auto Op = IROp->CW<IR::IROp_StoreFlag>();
+          FlagMap[BlockNode].writes |= 1 << Op->Flag;
+        }
+        else if (IROp->Op == OP_LOADFLAG) {
+          auto Op = IROp->CW<IR::IROp_LoadFlag>();
+          FlagMap[BlockNode].reads |= 1 << Op->Flag;
+        }
+
+        // CodeLast is inclusive. So we still need to dump the CodeLast op as well
+        if (CodeBegin == CodeLast) {
+          break;
+        }
+        ++CodeBegin;
       }
 
-      // CodeLast is inclusive. So we still need to dump the CodeLast op as well
-      if (CodeBegin == CodeLast) {
+      if (BlockIROp->Next.ID() == 0) {
         break;
-      }
-      ++CodeBegin;
-    }
-
-    if (BlockIROp->Next.ID() == 0) {
-      break;
-    } else {
-      BlockNode = BlockIROp->Next.GetNode(ListBegin);
-    }
-
-    // If any flags are stored but not loaded by the end of the block, then erase them
-    for (auto &Flag : LastValidFlagStores) {
-      if (Flag != nullptr) {
-        IREmit->Remove(Flag);
-        Changed = true;
+      } else {
+        BlockNode = BlockIROp->Next.GetNode(ListBegin);
       }
     }
+  }
 
-    LastValidFlagStores.fill(nullptr);
+  {
+    OrderedNode *BlockNode = HeaderOp->Blocks.GetNode(ListBegin);
+
+    while (1) {
+      auto BlockIROp = BlockNode->Op(DataBegin)->CW<FEXCore::IR::IROp_CodeBlock>();
+      LogMan::Throw::A(BlockIROp->Header.Op == OP_CODEBLOCK, "IR type failed to be a code block");
+
+      // We grab these nodes this way so we can iterate easily
+      auto CodeBegin = CurrentIR.at(BlockIROp->Begin);
+      auto CodeLast = CurrentIR.at(BlockIROp->Last);
+      while (1) {
+        auto CodeOp = CodeBegin();
+        OrderedNode *CodeNode = CodeOp->GetNode(ListBegin);
+        auto IROp = CodeNode->Op(DataBegin);
+
+        if (IROp->Op == OP_JUMP) {
+          auto Op = IROp->CW<IR::IROp_Jump>();
+          OrderedNode *TargetNode = Op->Header.Args[0].GetNode(ListBegin);
+
+          FlagMap[BlockNode].kill = FlagMap[TargetNode].writes & ~(FlagMap[TargetNode].reads);
+        }
+        else if (IROp->Op == OP_CONDJUMP) {
+          auto Op = IROp->CW<IR::IROp_CondJump>();
+
+          OrderedNode *TrueTargetNode = Op->Header.Args[1].GetNode(ListBegin);
+          OrderedNode *FalseTargetNode = Op->Header.Args[2].GetNode(ListBegin);
+
+          FlagMap[BlockNode].kill = FlagMap[TrueTargetNode].writes & ~(FlagMap[TrueTargetNode].reads);
+          FlagMap[BlockNode].kill &= FlagMap[FalseTargetNode].writes & ~(FlagMap[FalseTargetNode].reads);
+        }
+
+        // CodeLast is inclusive. So we still need to dump the CodeLast op as well
+        if (CodeBegin == CodeLast) {
+          break;
+        }
+        ++CodeBegin;
+      }
+
+      if (BlockIROp->Next.ID() == 0) {
+        break;
+      } else {
+        BlockNode = BlockIROp->Next.GetNode(ListBegin);
+      }
+    }
+  }
+
+  {
+    OrderedNode *BlockNode = HeaderOp->Blocks.GetNode(ListBegin);
+
+    while (1) {
+      auto BlockIROp = BlockNode->Op(DataBegin)->CW<FEXCore::IR::IROp_CodeBlock>();
+      LogMan::Throw::A(BlockIROp->Header.Op == OP_CODEBLOCK, "IR type failed to be a code block");
+
+      // We grab these nodes this way so we can iterate easily
+      auto CodeBegin = CurrentIR.at(BlockIROp->Begin);
+      auto CodeLast = CurrentIR.at(BlockIROp->Last);
+      while (1) {
+        auto CodeOp = CodeBegin();
+        OrderedNode *CodeNode = CodeOp->GetNode(ListBegin);
+        auto IROp = CodeNode->Op(DataBegin);
+
+        if (IROp->Op == OP_STOREFLAG) {
+          auto Op = IROp->CW<IR::IROp_StoreFlag>();
+          if (FlagMap[BlockNode].kill & (1 << Op->Flag)) {
+            // printf("FLANGO!\n");
+            IREmit->Remove(CodeNode);
+          }
+        }
+
+        // CodeLast is inclusive. So we still need to dump the CodeLast op as well
+        if (CodeBegin == CodeLast) {
+          break;
+        }
+        ++CodeBegin;
+      }
+
+      if (BlockIROp->Next.ID() == 0) {
+        break;
+      } else {
+        BlockNode = BlockIROp->Next.GetNode(ListBegin);
+      }
+    }
   }
 
   return Changed;

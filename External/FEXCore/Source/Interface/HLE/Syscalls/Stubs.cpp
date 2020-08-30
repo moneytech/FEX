@@ -105,7 +105,8 @@ namespace FEXCore::HLE {
     });
 
     REGISTER_SYSCALL_IMPL(utime, [](FEXCore::Core::InternalThreadState *Thread, char* filename, const struct utimbuf* times) -> uint64_t {
-      SYSCALL_STUB(utime);
+      //SYSCALL_STUB(utime);
+      return 0;
     });
 
     REGISTER_SYSCALL_IMPL(ustat, [](FEXCore::Core::InternalThreadState *Thread, dev_t dev, struct ustat *ubuf) -> uint64_t {

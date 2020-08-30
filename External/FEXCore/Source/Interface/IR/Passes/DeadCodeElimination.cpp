@@ -38,11 +38,21 @@ bool DeadCodeElimination::Run(IREmitter *IREmit) {
     // We grab these nodes this way so we can iterate easily
     auto CodeBegin = CurrentIR.at(BlockIROp->Begin);
     auto CodeLast = CurrentIR.at(BlockIROp->Last);
+    auto CodeEnd = CurrentIR.at(BlockIROp->Last);
 
     while (1) {
       auto CodeOp = CodeLast();
       OrderedNode *CodeNode = CodeOp->GetNode(ListBegin);
       auto IROp = CodeNode->Op(DataBegin);
+
+      // A BFE that extract all bits is a nop
+      if (IROp->Op == OP_BFE) {
+        auto Op = IROp->CW<IR::IROp_Bfe>();
+
+        if (IROp->Size == Op->Header.Args[0].GetNode(ListBegin)->Op(DataBegin)->Size && Op->Width == (IROp->Size * 8) && Op->lsb == 0 ) {
+          IREmit->ReplaceAllUsesWithInclusive(CodeNode, Op->Header.Args[0].GetNode(ListBegin), CodeLast, CodeEnd);
+        }
+      }
 
       // Skip over anything that has side effects
       // Use count tracking can't safely remove anything with side effects

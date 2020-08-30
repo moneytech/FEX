@@ -79,6 +79,7 @@ bool DeadFlagCalculationEliminination::Run(IREmitter *IREmit) {
     }
   }
 
+  for (int i = 0; i < 5; i++)
   {
     OrderedNode *BlockNode = HeaderOp->Blocks.GetNode(ListBegin);
 
@@ -99,6 +100,7 @@ bool DeadFlagCalculationEliminination::Run(IREmitter *IREmit) {
           OrderedNode *TargetNode = Op->Header.Args[0].GetNode(ListBegin);
 
           FlagMap[BlockNode].kill = FlagMap[TargetNode].writes & ~(FlagMap[TargetNode].reads);
+          FlagMap[BlockNode].writes |= FlagMap[BlockNode].kill & ~FlagMap[BlockNode].reads;
         }
         else if (IROp->Op == OP_CONDJUMP) {
           auto Op = IROp->CW<IR::IROp_CondJump>();
@@ -108,6 +110,7 @@ bool DeadFlagCalculationEliminination::Run(IREmitter *IREmit) {
 
           FlagMap[BlockNode].kill = FlagMap[TrueTargetNode].writes & ~(FlagMap[TrueTargetNode].reads);
           FlagMap[BlockNode].kill &= FlagMap[FalseTargetNode].writes & ~(FlagMap[FalseTargetNode].reads);
+          FlagMap[BlockNode].writes |= FlagMap[BlockNode].kill & ~FlagMap[BlockNode].reads;
         }
 
         // CodeLast is inclusive. So we still need to dump the CodeLast op as well
@@ -143,7 +146,7 @@ bool DeadFlagCalculationEliminination::Run(IREmitter *IREmit) {
         if (IROp->Op == OP_STOREFLAG) {
           auto Op = IROp->CW<IR::IROp_StoreFlag>();
           if (FlagMap[BlockNode].kill & (1 << Op->Flag)) {
-            // printf("FLANGO!\n");
+            //printf("FLANGO!\n");
             IREmit->Remove(CodeNode);
           }
         }

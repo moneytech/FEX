@@ -493,19 +493,22 @@ bool RCLSE::RedundantStoreLoadElimination(FEXCore::IR::IREmitter *IREmit) {
               IREmit->ReplaceAllUsesWith(CodeNode, LastNode);
               RecordAccess(Info, Op->Class, Op->Offset, IROp->Size, ACCESS_READ, LastNode);
             } else if (LastClass == FPRClass && LastSize >= IROp->Size && IROp->Size < IREmit->GetOpSize(LastNode)) {
-
+              printf("Trunc case, %d, lastS: %d, S: %d, Node S: %d\n", LastClass, LastSize, IROp->Size, IREmit->GetOpSize(LastNode));
               // trucate to size
               //LastNode = IREmit->_VMov(LastNode, IROp->Size);
 
               //IREmit->ReplaceAllUsesWith(CodeNode, LastNode);
               //RecordAccess(Info, Op->Class, Op->Offset, IROp->Size, ACCESS_READ, LastNode);
+              
             } else if (LastClass == FPRClass && LastSize >= IROp->Size && IROp->Size > IREmit->GetOpSize(LastNode)) {
-
+              printf("Zext case, %d, lastS: %d, S: %d, Node S: %d\n", LastClass, LastSize, IROp->Size, IREmit->GetOpSize(LastNode));
               // zext to size
+              //LastNode = IREmit->_VMov(LastNode, IREmit->GetOpSize(LastNode));
               //LastNode = IREmit->_VMov(LastNode, IROp->Size);
 
               //IREmit->ReplaceAllUsesWith(CodeNode, LastNode);
               //RecordAccess(Info, Op->Class, Op->Offset, IROp->Size, ACCESS_READ, LastNode);
+              
             } else {
               printf("Not GPR class, missed, %d, lastS: %d, S: %d, Node S: %d\n", LastClass, LastSize, IROp->Size, IREmit->GetOpSize(LastNode));
             }
@@ -520,6 +523,30 @@ bool RCLSE::RedundantStoreLoadElimination(FEXCore::IR::IREmitter *IREmit) {
           IREmit->ReplaceAllUsesWith(CodeNode, LastNode);
           RecordAccess(Info, Op->Class, Op->Offset, IROp->Size, ACCESS_READ, LastNode);
           Changed = true;
+        }
+        else if ((LastAccess == ACCESS_READ || LastAccess == ACCESS_PARTIAL_READ) &&
+                 LastClass == Op->Class &&
+                 LastOffset == Op->Offset &&
+                 LastSize > IROp->Size &&
+                 Info->Accessed == ACCESS_READ) {
+          printf("ACC_READ case, %d, lastS: %d, S: %d\n", LastClass, LastSize, IROp->Size);
+        }
+        else if ((LastAccess == ACCESS_READ || LastAccess == ACCESS_PARTIAL_READ) &&
+                 LastClass == Op->Class &&
+                 LastOffset == Op->Offset &&
+                 LastSize == IROp->Size &&
+                 Info->Accessed != ACCESS_READ) {
+          //printf("ACC_READ, != ACCESS_READ case, %d, lastS: %d, S: %d\n", LastClass, LastSize, IROp->Size);
+          IREmit->ReplaceAllUsesWith(CodeNode, LastNode);
+          RecordAccess(Info, Op->Class, Op->Offset, IROp->Size, ACCESS_READ, LastNode);
+          Changed = true;
+        }
+        else if ((LastAccess == ACCESS_READ || LastAccess == ACCESS_PARTIAL_READ) &&
+                 LastClass == Op->Class &&
+                 LastOffset == Op->Offset &&
+                 LastSize == IROp->Size &&
+                 Info->Accessed != ACCESS_READ) {
+          printf("ACC_READ, != ACCESS_READ case, %d, lastS: %d, S: %d\n", LastClass, LastSize, IROp->Size);
         }
       }
       else if (IROp->Op == OP_STOREFLAG) {

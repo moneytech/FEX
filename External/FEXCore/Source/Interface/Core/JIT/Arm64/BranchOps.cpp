@@ -31,6 +31,10 @@ DEF_OP(SignalReturn) {
 }
 
 DEF_OP(CallbackReturn) {
+
+  // spill back to CTX
+  SpillStaticRegs();
+  
   // First we must reset the stack
   ldp(TMP1, lr, MemOperand(sp, 16, PostIndex));
   add(sp, TMP1, 0); // Move that supports SP
@@ -203,12 +207,14 @@ DEF_OP(Thunk) {
 
   mov(x0, GetReg<RA_64>(Op->Header.Args[0].ID()));
 
+  SpillStaticRegs();
 #if _M_X86_64
   ERROR_AND_DIE("JIT: OP_THUNK not supported with arm simulator")
 #else
   LoadConstant(x2, Op->ThunkFnPtr);
   blr(x2);
 #endif
+  FillStaticRegs();
 
   // Fix the stack and any values that were stepped on
   i = 0;

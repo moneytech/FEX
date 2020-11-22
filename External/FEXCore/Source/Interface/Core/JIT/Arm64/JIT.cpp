@@ -974,7 +974,9 @@ void JITCore::CreateCustomDispatch(FEXCore::Core::InternalThreadState *Thread) {
     ldr(x3, &l_CompileBlock);
 
     // X2 contains our guest RIP
+    SpillStaticRegs(true);
     blr(x3); // { CTX, ThreadState, RIP}
+    FillStaticRegs(true);
 
     // X0 now contains either nullptr or block pointer
     cbz(x0, &FallbackCore);
@@ -992,7 +994,9 @@ void JITCore::CreateCustomDispatch(FEXCore::Core::InternalThreadState *Thread) {
     ldr(x3, &l_CompileFallback);
 
     // X2 contains our guest RIP
+    SpillStaticRegs(true);
     blr(x3); // {ThreadState, RIP}
+    FillStaticRegs(true);
 
     // X0 now contains either nullptr or block pointer
     cbz(x0, &Exit);
@@ -1110,15 +1114,17 @@ void JITCore::CreateCustomDispatch(FEXCore::Core::InternalThreadState *Thread) {
   *GetBuffer() = OriginalBuffer;
 }
 
-void JITCore::SpillStaticRegs() {
+void JITCore::SpillStaticRegs(bool OnlyCallerSaved) {
   for (size_t i = 0; i < SRA64.size(); i++) {
-    str(SRA64[i], MemOperand(STATE, (i + 1) * 8));
+    if (!OnlyCallerSaved || SRA64[i].GetCode() <= 18)
+      str(SRA64[i], MemOperand(STATE, (i + 1) * 8));
   }
 }
 
-void JITCore::FillStaticRegs() {
+void JITCore::FillStaticRegs(bool OnlyCallerSaved) {
   for (size_t i = 0; i < SRA64.size(); i++) {
-    ldr(SRA64[i], MemOperand(STATE, (i + 1) * 8));
+    if (!OnlyCallerSaved || SRA64[i].GetCode() <= 18)
+      ldr(SRA64[i], MemOperand(STATE, (i + 1) * 8));
   }
 }
 

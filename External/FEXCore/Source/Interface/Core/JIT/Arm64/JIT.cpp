@@ -606,6 +606,9 @@ void *JITCore::CompileCode([[maybe_unused]] FEXCore::IR::IRListView<true> const 
   uint32_t SSACount = IR->GetSSACount();
 
   auto HeaderOp = IR->GetHeader();
+
+  LoadConstant(x0, HeaderOp->Entry);
+  
   if (HeaderOp->ShouldInterpret) {
     return reinterpret_cast<void*>(InterpreterFallbackHelperAddress);
   }

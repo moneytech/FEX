@@ -456,8 +456,10 @@
         "uint8_t", "Size"
       ],
       "Args": [
+        "bool", "IsAlias",
         "uint32_t", "Offset",
-        "RegisterClassType", "Class"
+        "RegisterClassType", "Class",
+        "RegisterClassType", "StaticClass"
       ]
     },
 
@@ -478,8 +480,10 @@
         "uint8_t", "Size"
       ],
       "Args": [
+        "bool", "IsPrewrite",
         "uint32_t", "Offset",
-        "RegisterClassType", "Class"
+        "RegisterClassType", "Class",
+        "RegisterClassType", "StaticClass"
       ]
     },
 

@@ -360,7 +360,7 @@ JITCore::JITCore(FEXCore::Context::Context *ctx, FEXCore::Core::InternalThreadSt
   RAPass->AddRegisters(FEXCore::IR::GPRClass, NumGPRs);
   RAPass->AddRegisters(FEXCore::IR::FPRClass, NumXMMs);
   RAPass->AddRegisters(FEXCore::IR::GPRPairClass, NumGPRPairs);
-
+  
   RAPass->AllocateRegisterConflicts(FEXCore::IR::GPRClass, NumGPRs);
   RAPass->AllocateRegisterConflicts(FEXCore::IR::GPRPairClass, NumGPRs);
 
@@ -956,7 +956,6 @@ void JITCore::CreateCustomDispatch(FEXCore::Core::InternalThreadState *Thread) {
     // Adjust the stack to remove the alignment and also the return address
     // We will have been called from the ASM dispatcher, so we know where we came from
     add(rsp, 16);
-
     jmp(LoopTop);
   }
 

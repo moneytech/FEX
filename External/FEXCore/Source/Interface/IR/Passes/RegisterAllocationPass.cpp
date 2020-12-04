@@ -858,7 +858,7 @@ namespace FEXCore::IR {
           RegAndClass |= AllocateMoreRegisters(Graph, RegClass);
         }
 
-        TopRAPressure[RegClass] = std::max((uint32_t)RegAndClass, TopRAPressure[RegClass]);
+        TopRAPressure[RegClass] = std::max((uint32_t)RegAndClass + 1, TopRAPressure[RegClass]);
 
         // Walk the partners and ensure they are all set to the same register now
         for (auto Partner : Nodes) {
@@ -885,7 +885,7 @@ namespace FEXCore::IR {
           RegAndClass |= AllocateMoreRegisters(Graph, RegClass);
         }
 
-        TopRAPressure[RegClass] = std::max((uint32_t)RegAndClass, TopRAPressure[RegClass]);
+        TopRAPressure[RegClass] = std::max((uint32_t)RegAndClass + 1, TopRAPressure[RegClass]);
         CurrentNode->Head.RegAndClass = RegAndClass;
       }
     }
@@ -1372,15 +1372,9 @@ namespace FEXCore::IR {
       for (size_t i = 0; i < PhysicalRegisterCount.size(); ++i) {
         // Virtual registers fit completely within physical registers
         // Remap virtual 1:1 to physical
-        HadFullRA &= TopRAPressure[i] < PhysicalRegisterCount[i];
+        HadFullRA &= TopRAPressure[i] <= PhysicalRegisterCount[i];
       }
       
-      /*
-      if (TopRAPressure[GPRFixedClass.Val] >= PhysicalRegisterCount[GPRFixedClass.Val]) {
-        printf("SRA spill!? %d %d\n", TopRAPressure[GPRFixedClass.Val], PhysicalRegisterCount[GPRFixedClass.Val]);
-      }
-      */
-
       if (HadFullRA) {
         break;
       }

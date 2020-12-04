@@ -19,11 +19,7 @@ bool IsStaticAllocGpr(uint32_t Offset, RegisterClassType Class) {
     auto reg = (Offset - begin) / 8;
     assert(Class == IR::GPRClass);
 
-#ifdef _M_X86_64
-    rv = reg < 1; // RAX -> 1 in total
-#else
     rv = reg < 16; // 0..15 -> 16 in total
-#endif
   }
 
   return rv;
@@ -38,11 +34,7 @@ bool IsStaticAllocFpr(uint32_t Offset, RegisterClassType Class, bool AllowGpr) {
     auto reg = (Offset - begin)/16;
     assert(Class == IR::FPRClass || (AllowGpr && Class == IR::GPRClass));
 
-#ifdef _M_X86_64
-    rv = reg < 1; // XMM0 -> 1 in total
-#else
     rv = reg < 16; // 0..15 -> 16 in total
-#endif
   }
 
   return rv;

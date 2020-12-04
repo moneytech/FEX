@@ -292,7 +292,7 @@ namespace {
 namespace FEXCore::IR {
   class ConstrainedRAPass final : public RegisterAllocationPass {
     public:
-      ConstrainedRAPass();
+      ConstrainedRAPass(bool OptimizeSRA);
       ~ConstrainedRAPass();
       bool Run(IREmitter *IREmit) override;
 
@@ -308,6 +308,7 @@ namespace FEXCore::IR {
        */
       uint64_t GetNodeRegister(uint32_t Node) override;
     private:
+    bool OptimizeSRA;
 
       std::vector<uint32_t> PhysicalRegisterCount;
       std::vector<uint32_t> TopRAPressure;
@@ -343,7 +344,7 @@ namespace FEXCore::IR {
       bool RunAllocateVirtualRegisters(IREmitter *IREmit);
   };
 
-  ConstrainedRAPass::ConstrainedRAPass() {
+  ConstrainedRAPass::ConstrainedRAPass(bool OptimizeSRA_): OptimizeSRA(OptimizeSRA_) {
     LocalCompaction.reset(FEXCore::IR::CreateIRCompaction());
   }
 
@@ -1312,7 +1313,8 @@ namespace FEXCore::IR {
     ResetRegisterGraph(Graph, SSACount);
     FindNodeClasses(Graph, &IR);
     CalculateLiveRange(&IR);
-    OptimizeStaticRegisters(&IR);
+    if (OptimizeSRA)
+      OptimizeStaticRegisters(&IR);
 
     // Linear foward scan based interference calculation is faster for smaller blocks
     // Smarter block based interference calculation is faster for larger blocks
@@ -1390,7 +1392,7 @@ namespace FEXCore::IR {
     return Changed;
   }
 
-  FEXCore::IR::RegisterAllocationPass* CreateRegisterAllocationPass() {
-    return new ConstrainedRAPass{};
+  FEXCore::IR::RegisterAllocationPass* CreateRegisterAllocationPass(bool OptimizeSRA) {
+    return new ConstrainedRAPass{OptimizeSRA};
   }
 }

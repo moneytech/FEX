@@ -33,7 +33,7 @@ protected:
 class PassManager final {
   friend class SyscallOptimization;
 public:
-  void AddDefaultPasses(bool InlineConstants);
+  void AddDefaultPasses(bool InlineConstants, bool StaticRegisterAllocation);
   void AddDefaultValidationPasses();
   void InsertPass(Pass *Pass) {
     Pass->RegisterPassManager(this);

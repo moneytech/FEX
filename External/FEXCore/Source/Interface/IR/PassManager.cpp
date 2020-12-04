@@ -4,7 +4,7 @@
 
 namespace FEXCore::IR {
 
-void PassManager::AddDefaultPasses(bool InlineConstants) {
+void PassManager::AddDefaultPasses(bool InlineConstants, bool StaticRegisterAllocation) {
   InsertPass(CreateContextLoadStoreElimination());
   InsertPass(CreateConstProp(InlineConstants));
   InsertPass(CreateDeadFlagStoreElimination());
@@ -14,10 +14,9 @@ void PassManager::AddDefaultPasses(bool InlineConstants) {
   InsertPass(CreateSyscallOptimization());
   InsertPass(CreatePassDeadCodeElimination());
 
-  // only do SRA on JIT
-  if (InlineConstants)
+  // only do SRA if enabled and JIT
+  if (InlineConstants && StaticRegisterAllocation)
     InsertPass(CreateStaticRegisterAllocationPass());
-
 
   // If the IR is compacted post-RA then the node indexing gets messed up and the backend isn't able to find the register assigned to a node
   // Compact before IR, don't worry about RA generating spills/fills

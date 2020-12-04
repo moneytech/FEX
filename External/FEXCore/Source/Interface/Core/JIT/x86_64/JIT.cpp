@@ -360,7 +360,7 @@ JITCore::JITCore(FEXCore::Context::Context *ctx, FEXCore::Core::InternalThreadSt
   RAPass->AddRegisters(FEXCore::IR::GPRClass, NumGPRs);
   RAPass->AddRegisters(FEXCore::IR::FPRClass, NumXMMs);
   RAPass->AddRegisters(FEXCore::IR::GPRPairClass, NumGPRPairs);
-
+  
   RAPass->AllocateRegisterConflicts(FEXCore::IR::GPRClass, NumGPRs);
   RAPass->AllocateRegisterConflicts(FEXCore::IR::GPRPairClass, NumGPRs);
 
@@ -570,6 +570,8 @@ bool JITCore::IsInlineConstant(const IR::OrderedNodeWrapper& WNode, uint64_t* Va
   }
 }
 
+uintptr_t lastblock;
+
 void *JITCore::CompileCode([[maybe_unused]] FEXCore::IR::IRListView<true> const *IR, [[maybe_unused]] FEXCore::Core::DebugData *DebugData) {
   JumpTargets.clear();
   uint32_t SSACount = IR->GetSSACount();
@@ -591,6 +593,11 @@ void *JITCore::CompileCode([[maybe_unused]] FEXCore::IR::IRListView<true> const 
   LogMan::Throw::A(RAPass->HasFullRA(), "Needs RA");
 
   SpillSlots = RAPass->SpillSlots();
+
+  mov(rax, (uintptr_t)&lastblock);
+  mov(rcx, rax);
+  mov(rax, getCurr<uintptr_t>());
+  mov(qword[rcx], rax);
 
   if (SpillSlots) {
     sub(rsp, SpillSlots * 16 + 8);
@@ -914,7 +921,6 @@ void JITCore::CreateCustomDispatch(FEXCore::Core::InternalThreadState *Thread) {
     // Adjust the stack to remove the alignment and also the return address
     // We will have been called from the ASM dispatcher, so we know where we came from
     add(rsp, 16);
-
     jmp(LoopTop);
   }
 

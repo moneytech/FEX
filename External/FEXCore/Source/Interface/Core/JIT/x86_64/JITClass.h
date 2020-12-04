@@ -163,9 +163,6 @@ private:
   std::stack<uint64_t> SignalFrames;
   uint32_t SpillSlots{};
 
-  void SpillStaticRegs(bool OnlyCallerSaved = false);
-  void FillStaticRegs(bool OnlyCallerSaved = false);
-
   using OpHandler = void (JITCore::*)(FEXCore::IR::IROp_Header *IROp, uint32_t Node);
   std::array<OpHandler, FEXCore::IR::IROps::OP_LAST + 1> OpHandlers {};
   void RegisterALUHandlers();

@@ -162,94 +162,6 @@ DEF_OP(StoreContext) {
   }
 }
 
-DEF_OP(LoadRegister) {
-  auto Op = IROp->C<IR::IROp_LoadRegister>();
-  uint8_t OpSize = IROp->Size;
-
-  assert(Op->Class.Val == 0);
-
-  auto regId = Op->Offset / 8 - 1;
-  auto regOffs = Op->Offset & 7;
-
-  assert(regId < SRA64.size());
-
-  auto reg = SRA64[regId];
-
-  switch(Op->Header.Size) {
-    case 1:
-      assert(regOffs == 0 || regOffs == 1);
-
-      if (regOffs) { 
-        movzx(GetDst<RA_32>(Node), reg.cvt16()); shr(GetDst<RA_32>(Node), 8);
-      } else {
-        movzx(GetDst<RA_32>(Node), reg.cvt8());
-      }
-      break;
-
-    case 2:
-      assert(regOffs == 0);
-      movzx(GetDst<RA_32>(Node), reg.cvt16());
-      break;
-
-    case 4:
-      assert(regOffs == 0);
-      mov(GetDst<RA_32>(Node), reg.cvt32());
-      break;
-
-    case 8:
-      assert(regOffs == 0);
-      mov(GetDst<RA_64>(Node), reg.cvt64());
-      break;
-  }
-}
-
-DEF_OP(StoreRegister) {
-  auto Op = IROp->C<IR::IROp_StoreRegister>();
-  uint8_t OpSize = IROp->Size;
-
-  assert(Op->Class.Val == 0);
-
-  auto regId = Op->Offset / 8 - 1;
-  auto regOffs = Op->Offset & 7;
-  
-  assert(regId < SRA64.size());
-
-  auto reg = SRA64[regId];
-
-  switch(Op->Header.Size) {
-    case 1:
-      assert(regOffs == 0 || regOffs == 1);
-
-      if (regOffs) { 
-        mov(rax, reg);
-        mov(cl, GetSrc<RA_8>(Op->Value.ID()));
-        mov(ah, cl);
-        mov(reg, rax);
-      } else {
-        mov(reg.cvt8(), GetSrc<RA_8>(Op->Value.ID()));
-      }
-      break;
-
-    case 2:
-      assert(regOffs == 0);
-      mov(reg.cvt16(), GetSrc<RA_16>(Op->Value.ID()));
-      break;
-      
-    case 4:
-      assert(regOffs == 0);
-      mov(eax, GetSrc<RA_32>(Op->Value.ID()));
-      mov(ecx, reg.cvt32());
-      sub(reg, rcx);
-      add(reg, rax);
-      break;
-
-    case 8:
-      assert(regOffs == 0);
-      mov(reg.cvt64(), GetSrc<RA_64>(Op->Value.ID()));
-      break;
-  }
-}
-
 DEF_OP(LoadContextIndexed) {
   auto Op = IROp->C<IR::IROp_LoadContextIndexed>();
   size_t size = Op->Size;
@@ -686,8 +598,8 @@ void JITCore::RegisterMemoryHandlers() {
   REGISTER_OP(STORECONTEXTPAIR,    StoreContextPair);
   REGISTER_OP(LOADCONTEXT,         LoadContext);
   REGISTER_OP(STORECONTEXT,        StoreContext);
-  REGISTER_OP(LOADREGISTER,        LoadRegister);
-  REGISTER_OP(STOREREGISTER,       StoreRegister);
+  REGISTER_OP(LOADREGISTER,        Unhandled); // SRA specific, not supported on this backend
+  REGISTER_OP(STOREREGISTER,       Unhandled);
   REGISTER_OP(LOADCONTEXTINDEXED,  LoadContextIndexed);
   REGISTER_OP(STORECONTEXTINDEXED, StoreContextIndexed);
   REGISTER_OP(SPILLREGISTER,       SpillRegister);

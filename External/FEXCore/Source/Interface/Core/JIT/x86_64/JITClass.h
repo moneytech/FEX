@@ -173,8 +173,13 @@ private:
 
   void StoreThreadState(int Signal, void *ucontext);
   void RestoreThreadState(void *ucontext);
+
   std::stack<uint64_t> SignalFrames;
   uint32_t SpillSlots{};
+  uint64_t CurrentBlockRip{};
+
+  void StoreCurrentBlockRip();
+
   using SetCC = void (JITCore::*)(const Operand& op);
   using CMovCC = void (JITCore::*)(const Reg& reg, const Operand& op);
   using JCC = void (JITCore::*)(const Label& label, LabelType type);

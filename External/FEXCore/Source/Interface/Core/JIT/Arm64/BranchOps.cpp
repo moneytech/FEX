@@ -200,7 +200,8 @@ DEF_OP(Syscall) {
   // X0: SyscallHandler
   // X1: ThreadState
   // X2: Pointer to SyscallArguments
-
+  
+  StoreCurrentBlockRip();
   PushDynamicRegsAndLR();
   SpillStaticRegs();
 
@@ -234,7 +235,8 @@ DEF_OP(Thunk) {
   // Arguments are passed as follows:
   // X0: CTX
   // X1: Args (from guest stack)
-
+  
+  StoreCurrentBlockRip();
   SpillStaticRegs(); // spill to ctx before ra64 spill
 
   PushDynamicRegsAndLR();
@@ -300,6 +302,7 @@ DEF_OP(RemoveCodeEntry) {
   // X0: Thread
   // X1: RIP
 
+  StoreCurrentBlockRip();
   PushDynamicRegsAndLR();
   
   mov(x0, STATE);
@@ -317,6 +320,7 @@ DEF_OP(RemoveCodeEntry) {
 DEF_OP(CPUID) {
   auto Op = IROp->C<IR::IROp_CPUID>();
   
+  StoreCurrentBlockRip();
   PushDynamicRegsAndLR();
 
   // x0 = CPUID Handler

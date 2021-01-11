@@ -610,6 +610,11 @@ std::tuple<JITCore::SetCC, JITCore::CMovCC, JITCore::JCC> JITCore::GetCC(IR::Con
   }
 }
 
+void JITCore::StoreCurrentBlockRip() {
+  mov(rax, CurrentBlockRip);
+  mov(qword [STATE + offsetof(FEXCore::Core::CPUState, rip)], rax);
+}
+
 void *JITCore::CompileCode([[maybe_unused]] FEXCore::IR::IRListView<true> const *IR, [[maybe_unused]] FEXCore::Core::DebugData *DebugData) {
   JumpTargets.clear();
   uint32_t SSACount = IR->GetSSACount();
@@ -624,6 +629,7 @@ void *JITCore::CompileCode([[maybe_unused]] FEXCore::IR::IRListView<true> const 
 
 	void *Entry = getCurr<void*>();
   this->IR = IR;
+  this->CurrentBlockRip = HeaderOp->Entry;
 
   if (CTX->GetGdbServerStatus()) {
     Label RunBlock;
@@ -637,6 +643,7 @@ void *JITCore::CompileCode([[maybe_unused]] FEXCore::IR::IRListView<true> const 
     cmp(dword [rax + (offsetof(FEXCore::Context::Context, Config.RunningMode))], 0);
     je(RunBlock);
     // Else we need to pause now
+    StoreCurrentBlockRip();
     mov(rax, ThreadPauseHandlerAddress);
     jmp(rax);
     ud2();
@@ -645,8 +652,7 @@ void *JITCore::CompileCode([[maybe_unused]] FEXCore::IR::IRListView<true> const 
   }
 
   if (HeaderOp->ShouldInterpret) {
-    mov(rax, HeaderOp->Entry);
-    mov(qword [STATE + offsetof(FEXCore::Core::CPUState, rip)], rax);
+    StoreCurrentBlockRip();
     mov(rax, (uintptr_t)ThreadSharedData.InterpreterFallbackHelperAddress);
     jmp(rax);
   } else {

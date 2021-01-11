@@ -167,6 +167,9 @@ DEF_OP(CondJump) {
 
 DEF_OP(Syscall) {
   auto Op = IROp->C<IR::IROp_Syscall>();
+
+  StoreCurrentBlockRip(); // Needed because we are calling out of the JIT abi
+
   // XXX: This is very terrible, but I don't care for right now
 
   auto NumPush = RA64.size();
@@ -216,6 +219,8 @@ DEF_OP(Syscall) {
 
 DEF_OP(Thunk) {
   auto Op = IROp->C<IR::IROp_Thunk>();
+
+  StoreCurrentBlockRip(); // Needed because we are calling out of the JIT abi
 
   auto NumPush = RA64.size();
 
@@ -270,6 +275,8 @@ DEF_OP(ValidateCode) {
 DEF_OP(RemoveCodeEntry) {
   auto Op = IROp->C<IR::IROp_RemoveCodeEntry>();
 
+  StoreCurrentBlockRip(); // Needed because we are calling out of the JIT abi
+
   auto NumPush = RA64.size();
 
   for (auto &Reg : RA64)
@@ -295,6 +302,8 @@ DEF_OP(RemoveCodeEntry) {
 
 DEF_OP(CPUID) {
   auto Op = IROp->C<IR::IROp_CPUID>();
+
+  StoreCurrentBlockRip(); // Needed because we are calling out of the JIT abi
 
   using ClassPtrType = FEXCore::CPUID::FunctionResults (FEXCore::CPUIDEmu::*)(uint32_t Function);
   union {

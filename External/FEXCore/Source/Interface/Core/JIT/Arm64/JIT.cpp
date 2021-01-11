@@ -1318,6 +1318,11 @@ void JITCore::CreateCustomDispatch(FEXCore::Core::InternalThreadState *Thread) {
   *GetBuffer() = OriginalBuffer;
 }
 
+void JITCore::StoreCurrentBlockRip() {
+  LoadConstant(x0, CurrentBlockRip);
+  str(x0, MemOperand(STATE, offsetof(FEXCore::Core::ThreadState, State.rip)));
+}
+
 void JITCore::SpillStaticRegs() {
   for (size_t i = 0; i < SRA64.size(); i+=2) {
       stp(SRA64[i], SRA64[i+1], MemOperand(STATE, offsetof(FEXCore::Core::ThreadState, State.gregs[i])));

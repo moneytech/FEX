@@ -506,6 +506,7 @@ DEF_OP(LDiv) {
     break;
     }
     case 8: {
+      StoreCurrentBlockRip();
       PushDynamicRegsAndLR();
 
       mov(x0, GetReg<RA_64>(Op->Header.Args[1].ID()));
@@ -553,6 +554,7 @@ DEF_OP(LUDiv) {
     break;
     }
     case 8: {
+      StoreCurrentBlockRip();
       PushDynamicRegsAndLR();
 
       mov(x0, GetReg<RA_64>(Op->Header.Args[1].ID()));
@@ -610,6 +612,7 @@ DEF_OP(LRem) {
     break;
     }
     case 8: {
+      StoreCurrentBlockRip();
       PushDynamicRegsAndLR();
 
       mov(x0, GetReg<RA_64>(Op->Header.Args[1].ID()));
@@ -663,7 +666,7 @@ DEF_OP(LURem) {
     break;
     }
     case 8: {
-
+      StoreCurrentBlockRip();
       PushDynamicRegsAndLR();
 
       mov(x0, GetReg<RA_64>(Op->Header.Args[1].ID()));

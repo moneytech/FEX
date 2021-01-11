@@ -231,7 +231,9 @@ private:
   IR::RegisterAllocationPass *RAPass;
 
   uint32_t SpillSlots{};
+  uint64_t CurrentBlockRip{};
 
+  void StoreCurrentBlockRip();
   void SpillStaticRegs();
   void FillStaticRegs();
 

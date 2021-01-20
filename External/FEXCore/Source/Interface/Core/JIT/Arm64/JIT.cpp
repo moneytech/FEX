@@ -540,6 +540,22 @@ JITCore::JITCore(FEXCore::Context::Context *ctx, FEXCore::Core::InternalThreadSt
     RAPass->AddRegisterConflict(FEXCore::IR::GPRClass, i * 2 + 1, FEXCore::IR::GPRPairClass, i);
   }
 
+  auto RAPassOld = Thread->PassManager->GetRAPassOld();
+
+  RAPassOld->AllocateRegisterSet(UsedRegisterCount, RegisterClasses);
+
+  RAPassOld->AddRegisters(FEXCore::IR::GPRClass, NumUsedGPRs);
+  RAPassOld->AddRegisters(FEXCore::IR::GPRFixedClass, SRA64.size());
+  RAPassOld->AddRegisters(FEXCore::IR::FPRClass, NumFPRs);
+  RAPassOld->AddRegisters(FEXCore::IR::FPRFixedClass, SRAFPR.size()  );
+  RAPassOld->AddRegisters(FEXCore::IR::GPRPairClass, NumUsedGPRPairs);
+  RAPassOld->AddRegisters(FEXCore::IR::ComplexClass, 1);
+
+  for (uint32_t i = 0; i < NumUsedGPRPairs; ++i) {
+    RAPassOld->AddRegisterConflict(FEXCore::IR::GPRClass, i * 2,     FEXCore::IR::GPRPairClass, i);
+    RAPassOld->AddRegisterConflict(FEXCore::IR::GPRClass, i * 2 + 1, FEXCore::IR::GPRPairClass, i);
+  }
+
   for (uint32_t i = 0; i < FEXCore::IR::IROps::OP_LAST + 1; ++i) {
     OpHandlers[i] = &JITCore::Op_Unhandled;
   }
@@ -1007,6 +1023,7 @@ uint64_t JITCore::ExitFunctionLink(JITCore *core, FEXCore::Core::InternalThreadS
     // optimal case - can branch directly
     // patch the code
     vixl::aarch64::Assembler emit((uint8_t*)(branch), 24);
+    emit.SetAllowAssembler(true);
     emit.b(offset);
     emit.FinalizeCode();
     vixl::aarch64::CPU::EnsureIAndDCacheCoherency((void*)branch, 24);

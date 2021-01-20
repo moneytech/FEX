@@ -367,6 +367,18 @@ JITCore::JITCore(FEXCore::Context::Context *ctx, FEXCore::Core::InternalThreadSt
     RAPass->AddRegisterConflict(FEXCore::IR::GPRClass, i * 2 + 1, FEXCore::IR::GPRPairClass, i);
   }
 
+  auto RAPassOld = Thread->PassManager->GetRAPassOld();
+
+  RAPassOld->AllocateRegisterSet(RegisterCount, RegisterClasses);
+  RAPassOld->AddRegisters(FEXCore::IR::GPRClass, NumGPRs);
+  RAPassOld->AddRegisters(FEXCore::IR::FPRClass, NumXMMs);
+  RAPassOld->AddRegisters(FEXCore::IR::GPRPairClass, NumGPRPairs);
+
+  for (uint32_t i = 0; i < NumGPRPairs; ++i) {
+    RAPassOld->AddRegisterConflict(FEXCore::IR::GPRClass, i * 2,     FEXCore::IR::GPRPairClass, i);
+    RAPassOld->AddRegisterConflict(FEXCore::IR::GPRClass, i * 2 + 1, FEXCore::IR::GPRPairClass, i);
+  }
+
   for (uint32_t i = 0; i < FEXCore::IR::IROps::OP_LAST + 1; ++i) {
     OpHandlers[i] = &JITCore::Op_Unhandled;
   }

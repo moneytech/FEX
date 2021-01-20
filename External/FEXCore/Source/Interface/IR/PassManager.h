@@ -39,6 +39,11 @@ public:
     Pass->RegisterPassManager(this);
     Passes.emplace_back(Pass);
   }
+  void InsertOldPass(Pass *Pass) {
+    if (Pass)
+      Pass->RegisterPassManager(this);
+    PassesOld.emplace_back(Pass);
+  }
 
   void InsertRegisterAllocationPass(bool OptimizeSRA);
 
@@ -56,6 +61,10 @@ public:
     return reinterpret_cast<IR::RegisterAllocationPass*>(RAPass);
   }
 
+  IR::RegisterAllocationPass *GetRAPassOld() {
+    return reinterpret_cast<IR::RegisterAllocationPass*>(RAPassOld);
+  }
+
   void RegisterSyscallHandler(FEXCore::HLE::SyscallHandler *Handler) {
     SyscallHandler = Handler;
   }
@@ -66,9 +75,11 @@ protected:
 
 private:
   Pass *RAPass{};
+  Pass *RAPassOld{};
   FEXCore::IR::Pass *CompactionPass{};
 
   std::vector<std::unique_ptr<Pass>> Passes;
+  std::vector<std::unique_ptr<Pass>> PassesOld;
 
 #if defined(ASSERTIONS_ENABLED) && ASSERTIONS_ENABLED
   std::vector<std::unique_ptr<Pass>> ValidationPasses;

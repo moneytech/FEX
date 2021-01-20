@@ -40,11 +40,14 @@ void M(DebugLevels Level, const char *fmt, va_list args) {
   if (Return >= MsgSize) {
     // Allocate a bigger size on failure
     MsgSize = Return;
-    Buffer = reinterpret_cast<char*>(alloca(MsgSize));
+    Buffer = reinterpret_cast<char*>(malloc(MsgSize));
     vsnprintf(Buffer, MsgSize, fmt, args);
   }
   for (auto &Handler : Handlers) {
     Handler(Level, Buffer);
+  }
+  if (MsgSize != 1024) {
+    free(Buffer);
   }
 }
 

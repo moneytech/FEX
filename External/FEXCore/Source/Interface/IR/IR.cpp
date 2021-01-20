@@ -75,6 +75,8 @@ static void PrintArg(std::stringstream *out, IRListView<false> const* IR, Ordere
     *out << "%ssa" << std::to_string(Arg.ID());
     if (RAPass) {
       uint64_t RegClass = RAPass->GetNodeRegister(Arg.ID());
+      if (RegClass == ~0ULL)
+        RegClass = 0x7'0000'001f;
       FEXCore::IR::RegisterClassType Class {uint32_t(RegClass >> 32)};
       uint32_t Reg = RegClass;
       switch (Class) {
@@ -198,6 +200,9 @@ void Dump(std::stringstream *out, IRListView<false> const* IR, IR::RegisterAlloc
 
           if (RAPass) {
             uint64_t RegClass = RAPass->GetNodeRegister(ID);
+            if (RegClass == ~0ULL)
+              RegClass = 0x7'0000'001f;
+
             FEXCore::IR::RegisterClassType Class {uint32_t(RegClass >> 32)};
             uint32_t Reg = RegClass;
             switch (Class) {

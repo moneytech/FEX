@@ -159,6 +159,12 @@ set (SRCS
   Interface/IR/Passes/StaticRegisterAllocationPass.cpp
   Interface/IR/Passes/RegisterAllocationPass.cpp
   Interface/IR/Passes/SyscallOptimization.cpp
+  Interface/IR/Main/Passes/MainConstProp.cpp
+  Interface/IR/Main/Passes/MainDeadContextStoreElimination.cpp
+  Interface/IR/Main/Passes/MainDeadFlagStoreElimination.cpp
+  Interface/IR/Main/Passes/MainDeadGPRStoreElimination.cpp
+  Interface/IR/Main/Passes/MainDeadFPRStoreElimination.cpp
+  Interface/IR/Main/Passes/MainRegisterAllocationPass.cpp
   Utils/ELFLoader.cpp
   Utils/ELFSymbolDatabase.cpp
   Utils/LogManager.cpp

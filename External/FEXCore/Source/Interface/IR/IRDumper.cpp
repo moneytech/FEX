@@ -12,15 +12,15 @@ namespace FEXCore::IR {
 
 #include <FEXCore/IR/IRDefines.inc>
 
-static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> const* IR, uint64_t Arg) {
+static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* IR, uint64_t Arg) {
   *out << "#0x" << std::hex << Arg;
 }
 
-static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> const* IR, const char* Arg) {
+static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* IR, const char* Arg) {
   *out <<  Arg;
 }
 
-static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> const* IR, CondClassType Arg) {
+static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* IR, CondClassType Arg) {
   std::array<std::string, 22> CondNames = {
     "EQ",
     "NEQ",
@@ -49,7 +49,7 @@ static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> 
   *out << CondNames[Arg];
 }
 
-static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> const* IR, MemOffsetType Arg) {
+static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* IR, MemOffsetType Arg) {
   std::array<std::string, 3> Names = {
     "SXTX",
     "UXTW",
@@ -59,7 +59,7 @@ static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> 
   *out << Names[Arg];
 }
 
-static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> const* IR, RegisterClassType Arg) {
+static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* IR, RegisterClassType Arg) {
   if (Arg == GPRClass.Val)
     *out << "GPR";
   else if (Arg == GPRFixedClass.Val)
@@ -74,15 +74,15 @@ static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> 
     *out << "Unknown Registerclass " << Arg;
 }
 
-static void PrintArg(std::stringstream *out, IRListView<false> const* IR, OrderedNodeWrapper Arg, IR::RegisterAllocationPass *RAPass) {
+static void PrintArg(std::stringstream *out, IRListView const* IR, OrderedNodeWrapper Arg, IR::RegisterAllocationData *RAData) {
   auto [CodeNode, IROp] = IR->at(Arg)();
 
   if (Arg.ID() == 0) {
     *out << "%Invalid";
   } else {
     *out << "%ssa" << std::to_string(Arg.ID());
-    if (RAPass) {
-      uint64_t RegClass = RAPass->GetNodeRegister(Arg.ID());
+    if (RAData) {
+      uint64_t RegClass = RAData->GetNodeRegister(Arg.ID());
       FEXCore::IR::RegisterClassType Class {uint32_t(RegClass >> 32)};
       uint32_t Reg = RegClass;
       switch (Class) {
@@ -124,7 +124,7 @@ static void PrintArg(std::stringstream *out, IRListView<false> const* IR, Ordere
   }
 }
 
-static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> const* IR, IR::TypeDefinition Arg) {
+static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* IR, IR::TypeDefinition Arg) {
   *out << "i" << std::dec << static_cast<uint32_t>(Arg.Bytes() * 8);
 
   if (Arg.Elements()) {
@@ -132,7 +132,7 @@ static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> 
   }
 }
 
-static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> const* IR, FEXCore::IR::FenceType Arg) {
+static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* IR, FEXCore::IR::FenceType Arg) {
   if (Arg == IR::Fence_Load) {
     *out << "Loads";
   }
@@ -147,7 +147,7 @@ static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView<false> 
   }
 }
 
-void Dump(std::stringstream *out, IRListView<false> const* IR, IR::RegisterAllocationPass *RAPass) {
+void Dump(std::stringstream *out, IRListView const* IR, IR::RegisterAllocationData *RAData) {
   auto HeaderOp = IR->GetHeader();
 
   int8_t CurrentIndent = 0;
@@ -204,8 +204,8 @@ void Dump(std::stringstream *out, IRListView<false> const* IR, IR::RegisterAlloc
 
           *out << "%ssa" << std::to_string(ID);
 
-          if (RAPass) {
-            uint64_t RegClass = RAPass->GetNodeRegister(ID);
+          if (RAData) {
+            uint64_t RegClass = RAData->GetNodeRegister(ID);
             FEXCore::IR::RegisterClassType Class {uint32_t(RegClass >> 32)};
             uint32_t Reg = RegClass;
             switch (Class) {
@@ -264,9 +264,9 @@ void Dump(std::stringstream *out, IRListView<false> const* IR, IR::RegisterAlloc
             auto [NodeNode, IROp] = NodeBegin();
             auto PhiOp  = IROp->C<IR::IROp_PhiValue>();
             *out << "[ ";
-            PrintArg(out, IR, PhiOp->Value, RAPass);
+            PrintArg(out, IR, PhiOp->Value, RAData);
             *out << ", ";
-            PrintArg(out, IR, PhiOp->Block, RAPass);
+            PrintArg(out, IR, PhiOp->Block, RAData);
             *out << " ]";
 
             if (PhiOp->Next.ID())

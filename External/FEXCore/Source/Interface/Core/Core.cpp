@@ -931,10 +931,14 @@ namespace FEXCore::Context {
   }
 
   void FlushCodeRange(FEXCore::Core::InternalThreadState *Thread, uint64_t Begin, uint64_t End) {
-    for (auto CurrentPage = Begin >> 12, EndPage = End >> 12; CurrentPage <= EndPage; CurrentPage++) {
-      for (auto Address: Thread->BlockCache->CodePages[CurrentPage])
+
+    auto lower = Thread->BlockCache->CodePages.lower_bound(Begin >> 12);
+    auto upper = Thread->BlockCache->CodePages.upper_bound(End >> 12);
+    
+    for (auto it = lower; it != upper; it++) {
+      for (auto Address: it->second) 
         Context::RemoveCodeEntry(Thread, Address);
-      Thread->BlockCache->CodePages[CurrentPage].clear();
+      it->second.clear();
     }
   }
 

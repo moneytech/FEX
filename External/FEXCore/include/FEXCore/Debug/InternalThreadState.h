@@ -90,6 +90,8 @@ namespace FEXCore::Core {
     uint32_t CompileBlockReentrantRefCount{};
     std::shared_ptr<FEXCore::CompileService> CompileService;
     bool IsCompileService{false};
+
+    void FlushCacheRange(uint64_t Begin, uint64_t End);
   };
   static_assert(offsetof(InternalThreadState, State) == 0, "InternalThreadState must have State be the first object");
   static_assert(std::is_standard_layout<InternalThreadState>::value, "This needs to be standard layout");

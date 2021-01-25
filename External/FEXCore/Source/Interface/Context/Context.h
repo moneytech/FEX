@@ -139,7 +139,7 @@ namespace FEXCore::Context {
     FEXCore::Core::ThreadState *GetThreadState();
     void LoadEntryList();
 
-    std::tuple<void *, FEXCore::Core::DebugData *> CompileCode(FEXCore::Core::InternalThreadState *Thread, uint64_t GuestRIP);
+    std::tuple<void *, FEXCore::Core::DebugData *, uint64_t, uint64_t> CompileCode(FEXCore::Core::InternalThreadState *Thread, uint64_t GuestRIP);
     uintptr_t CompileBlock(FEXCore::Core::InternalThreadState *Thread, uint64_t GuestRIP);
     uintptr_t CompileFallbackBlock(FEXCore::Core::InternalThreadState *Thread, uint64_t GuestRIP);
 
@@ -166,7 +166,7 @@ namespace FEXCore::Context {
     void ExecutionThread(FEXCore::Core::InternalThreadState *Thread);
     void NotifyPause();
 
-    uintptr_t AddBlockMapping(FEXCore::Core::InternalThreadState *Thread, uint64_t Address, void *Ptr);
+    uintptr_t AddBlockMapping(FEXCore::Core::InternalThreadState *Thread, uint64_t Address, void *Ptr, uint64_t Begin, uint64_t End);
 
     FEXCore::CodeLoader *LocalLoader{};
 

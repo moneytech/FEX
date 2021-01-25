@@ -559,8 +559,8 @@ namespace FEXCore::Context {
     return Thread;
   }
 
-  uintptr_t Context::AddBlockMapping(FEXCore::Core::InternalThreadState *Thread, uint64_t Address, void *Ptr) {
-    auto BlockMapPtr = Thread->BlockCache->AddBlockMapping(Address, Ptr);
+  uintptr_t Context::AddBlockMapping(FEXCore::Core::InternalThreadState *Thread, uint64_t Address, void *Ptr, uint64_t Begin, uint64_t End) {
+    auto BlockMapPtr = Thread->BlockCache->AddBlockMapping(Address, Ptr, Begin, End);
     if (BlockMapPtr == 0) {
       Thread->BlockCache->ClearCache();
 
@@ -572,7 +572,7 @@ namespace FEXCore::Context {
         Thread->IRLists.clear();
         Thread->IRLists.try_emplace(Address, IR);
       }
-      BlockMapPtr = Thread->BlockCache->AddBlockMapping(Address, Ptr);
+      BlockMapPtr = Thread->BlockCache->AddBlockMapping(Address, Ptr, Begin, End);
       LogMan::Throw::A(BlockMapPtr, "Couldn't add mapping after clearing mapping cache");
     }
 
@@ -598,14 +598,15 @@ namespace FEXCore::Context {
     }
   }
 
-  std::tuple<void *, FEXCore::Core::DebugData *> Context::CompileCode(FEXCore::Core::InternalThreadState *Thread, uint64_t GuestRIP) {
+  std::tuple<void *, FEXCore::Core::DebugData *, uint64_t, uint64_t> Context::CompileCode(FEXCore::Core::InternalThreadState *Thread, uint64_t GuestRIP) {
     uint8_t const *GuestCode{};
-      GuestCode = reinterpret_cast<uint8_t const*>(GuestRIP);
+    GuestCode = reinterpret_cast<uint8_t const*>(GuestRIP);
 
     // Do we already have this in the IR cache?
     auto IR = Thread->IRLists.find(GuestRIP);
     FEXCore::IR::IRListView<true> *IRList {};
     FEXCore::Core::DebugData *DebugData {};
+    uint64_t GuestMinAddr, GuestMaxAddr;
 
     if (IR == Thread->IRLists.end()) {
       bool HadDispatchError {false};
@@ -618,8 +619,11 @@ namespace FEXCore::Context {
           LogMan::Msg::E("Had Frontend decoder error");
           Stop(false /* Ignore Current Thread */);
         }
-        return { nullptr, nullptr };
+        return { nullptr, nullptr, 0, 0 };
       }
+
+      GuestMinAddr = Thread->FrontendDecoder->CodeMinAddress;
+      GuestMaxAddr = Thread->FrontendDecoder->CodeMaxAddress;
 
       auto CodeBlocks = Thread->FrontendDecoder->GetDecodedBlocks();
 
@@ -698,7 +702,7 @@ namespace FEXCore::Context {
             if (TotalInstructions == 0) {
               // Couldn't handle any instruction in op dispatcher
               Thread->OpDispatcher->ResetWorkingList();
-              return { nullptr, nullptr };
+              return { nullptr, nullptr, 0, 0 };
             }
             else {
               uint8_t GPRSize = Config.Is64BitMode ? 8 : 4;
@@ -811,13 +815,14 @@ namespace FEXCore::Context {
     }
 
     // Attempt to get the CPU backend to compile this code
-    return { Thread->CPUBackend->CompileCode(IRList, DebugData), DebugData };
+    return { Thread->CPUBackend->CompileCode(IRList, DebugData), DebugData, GuestMinAddr, GuestMaxAddr -1 };
   }
 
   uintptr_t Context::CompileBlock(FEXCore::Core::InternalThreadState *Thread, uint64_t GuestRIP) {
     void *CodePtr;
     FEXCore::Core::DebugData *DebugData;
     bool DecrementRefCount = false;
+    uint64_t GuestBeginAddr, GuestEndAddr;
 
     if (Thread->CompileBlockReentrantRefCount != 0) {
       if (!Thread->CompileService) {
@@ -834,9 +839,11 @@ namespace FEXCore::Context {
     } else {
       ++Thread->CompileBlockReentrantRefCount;
       DecrementRefCount = true;
-      auto [Code, Data] = CompileCode(Thread, GuestRIP);
+      auto [Code, Data, GuestBegin, GuestEnd] = CompileCode(Thread, GuestRIP);
       CodePtr = Code;
       DebugData = Data;
+      GuestBeginAddr = GuestBegin;
+      GuestEndAddr = GuestEnd;
     }
 
     if (CodePtr != nullptr) {
@@ -855,7 +862,7 @@ namespace FEXCore::Context {
 
       if (DecrementRefCount)
         --Thread->CompileBlockReentrantRefCount;
-      return AddBlockMapping(Thread, GuestRIP, CodePtr);
+      return AddBlockMapping(Thread, GuestRIP, CodePtr, GuestBeginAddr, GuestEndAddr);
     }
 
     if (DecrementRefCount)
@@ -869,10 +876,6 @@ namespace FEXCore::Context {
     // This will most likely fail since regular code use won't be using a fallback core.
     // It's mainly for testing new instruction encodings
     void *CodePtr = Thread->FallbackBackend->CompileCode(nullptr, nullptr);
-    if (CodePtr) {
-     uintptr_t Ptr = reinterpret_cast<uintptr_t >(AddBlockMapping(Thread, GuestRIP, CodePtr));
-     return Ptr;
-    }
 
     return 0;
   }
@@ -925,6 +928,14 @@ namespace FEXCore::Context {
     IdleWaitCV.notify_all();
 
     SignalDelegation->UninstallTLSState(Thread);
+  }
+
+  void FlushCodeRange(FEXCore::Core::InternalThreadState *Thread, uint64_t Begin, uint64_t End) {
+    for (auto CurrentPage = Begin >> 12, EndPage = End >> 12; CurrentPage <= EndPage; CurrentPage++) {
+      for (auto Address: Thread->BlockCache->CodePages[CurrentPage])
+        Context::RemoveCodeEntry(Thread, Address);
+      Thread->BlockCache->CodePages[CurrentPage].clear();
+    }
   }
 
   void Context::RemoveCodeEntry(FEXCore::Core::InternalThreadState *Thread, uint64_t GuestRIP) {

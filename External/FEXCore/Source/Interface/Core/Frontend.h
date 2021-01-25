@@ -30,6 +30,9 @@ public:
     return &Blocks;
   }
 
+  uint64_t CodeMaxAddress {};
+  uint64_t CodeMinAddress {};
+
 private:
   FEXCore::Context::Context *CTX;
 

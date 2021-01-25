@@ -60,5 +60,7 @@ void BlockCache::ClearCache() {
   BlockLinks.clear();
 }
 
+#include "Interface/Core/InternalThreadState.h"
+
 }
 

@@ -33,7 +33,7 @@ namespace FEXCore::Config {
       CTX->Config.TSOEnabled = Config != 0;
     break;
     case FEXCore::Config::CONFIG_SMC_CHECKS:
-      CTX->Config.SMCChecks = Config != 0;
+      CTX->Config.SMCChecks = (FEXCore::Context::SMCCheckLevel)Config;
     break;
     case FEXCore::Config::CONFIG_ABI_LOCAL_FLAGS:
       CTX->Config.ABILocalFlags = Config != 0;
@@ -59,6 +59,15 @@ namespace FEXCore::Config {
     case FEXCore::Config::CONFIG_DUMPIR:
       CTX->Config.DumpIR = Config;
       break;
+    case FEXCore::Config::CONFIG_SMC_CHECKS: {
+      if (Config == "none")
+        CTX->Config.SMCChecks = FEXCore::Context::SMCCheckLevel::SMC_CHECK_NONE;
+      else if (Config == "full")
+        CTX->Config.SMCChecks = FEXCore::Context::SMCCheckLevel::SMC_CHECK_MMAN;
+      else
+        CTX->Config.SMCChecks = FEXCore::Context::SMCCheckLevel::SMC_CHECK_FULL;
+      break;
+    }
     default: LogMan::Msg::A("Unknown configuration option");
     }
   }

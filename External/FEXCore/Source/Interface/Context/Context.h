@@ -41,6 +41,13 @@ namespace FEXCore::Context {
     MODE_SINGLESTEP = 1,
   };
 
+
+  enum SMCCheckLevel {
+    SMC_CHECK_NONE,
+    SMC_CHECK_MMAN,
+    SMC_CHECK_FULL
+  };
+
   struct Context {
     friend class FEXCore::HLE::SyscallHandler;
     friend class FEXCore::CPU::JITCore;
@@ -59,7 +66,7 @@ namespace FEXCore::Context {
 
       bool Is64BitMode {true};
       bool TSOEnabled {true};
-      bool SMCChecks {false};
+      SMCCheckLevel SMCChecks {SMC_CHECK_MMAN};
       bool ABILocalFlags {false};
       bool ABINoPF {false};
 

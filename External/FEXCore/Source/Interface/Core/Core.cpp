@@ -655,7 +655,7 @@ namespace FEXCore::Context {
           TableInfo = Block.DecodedInstructions[i].TableInfo;
           DecodedInfo = &Block.DecodedInstructions[i];
 
-          if (Config.SMCChecks) {
+          if (Config.SMCChecks == SMC_CHECK_FULL) {
             auto ExistingCodePtr = reinterpret_cast<uint64_t*>(Block.Entry + BlockInstructionsLength);
 
             auto CodeChanged = Thread->OpDispatcher->_ValidateCode(ExistingCodePtr[0], ExistingCodePtr[1], (uintptr_t)ExistingCodePtr, DecodedInfo->InstSize);
@@ -930,15 +930,16 @@ namespace FEXCore::Context {
     SignalDelegation->UninstallTLSState(Thread);
   }
 
-  void FlushCodeRange(FEXCore::Core::InternalThreadState *Thread, uint64_t Begin, uint64_t End) {
+  void MManRemoveCodeRange(FEXCore::Core::InternalThreadState *Thread, uint64_t Begin, uint64_t End) {
+    if (Thread->CTX->Config.SMCChecks == SMC_CHECK_MMAN) {
+      auto lower = Thread->BlockCache->CodePages.lower_bound(Begin >> 12);
+      auto upper = Thread->BlockCache->CodePages.upper_bound(End >> 12);
 
-    auto lower = Thread->BlockCache->CodePages.lower_bound(Begin >> 12);
-    auto upper = Thread->BlockCache->CodePages.upper_bound(End >> 12);
-    
-    for (auto it = lower; it != upper; it++) {
-      for (auto Address: it->second) 
-        Context::RemoveCodeEntry(Thread, Address);
-      it->second.clear();
+      for (auto it = lower; it != upper; it++) {
+        for (auto Address: it->second) 
+          Context::RemoveCodeEntry(Thread, Address);
+        it->second.clear();
+      }
     }
   }
 

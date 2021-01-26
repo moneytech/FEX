@@ -66,11 +66,11 @@ namespace FEX::ArgLoader {
           .help("Number of physical hardware threads to tell the process we have")
           .set_default(1);
 
-      CPUGroup.add_option("--smc-full-checks")
+      CPUGroup.add_option("--smc")
         .dest("SMCChecks")
-        .action("store_true")
-        .help("Checks code for modification before execution. Slow.")
-        .set_default(false);
+        .choices({"none", "mman", "full"})
+        .help("Checks code for modification before execution.\n\tnone: No checks\n\tmman: Invalidate on mmap/munmap/mprotect. Minimal overhead.\n\tfull: Validate code before execution. Slow.")
+        .set_default("mman");
 
       CPUGroup.add_option("--unsafe-no-tso")
         .dest("TSOEnabled")
@@ -217,8 +217,8 @@ namespace FEX::ArgLoader {
       }
 
       if (Options.is_set_by_user("SMCChecks")) {
-        bool SMCChecks = Options.get("SMCChecks");
-        Set(FEXCore::Config::ConfigOption::CONFIG_SMC_CHECKS, std::to_string(SMCChecks));
+        const char* SMCChecks = Options.get("SMCChecks");
+        Set(FEXCore::Config::ConfigOption::CONFIG_SMC_CHECKS, SMCChecks);
       }
       if (Options.is_set_by_user("AbiLocalFlags")) {
         bool AbiLocalFlags = Options.get("AbiLocalFlags");

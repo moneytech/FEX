@@ -229,5 +229,5 @@ namespace FEXCore::Context {
   void SetSignalDelegator(FEXCore::Context::Context *CTX, FEXCore::SignalDelegator *SignalDelegation);
   void SetSyscallHandler(FEXCore::Context::Context *CTX, FEXCore::HLE::SyscallHandler *Handler);
   FEXCore::CPUID::FunctionResults RunCPUIDFunction(FEXCore::Context::Context *CTX, uint32_t Function, uint32_t Leaf);
-  void FlushCodeRange(FEXCore::Core::InternalThreadState *Thread, uint64_t Begin, uint64_t End);
+  void MManRemoveCodeRange(FEXCore::Core::InternalThreadState *Thread, uint64_t Begin, uint64_t End);
 }

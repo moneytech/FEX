@@ -56,11 +56,7 @@ public:
 
   std::map<uint64_t, std::vector<uint64_t>> CodePages;
   
-  uintptr_t AddBlockMapping(uint64_t Address, void *Ptr, uint64_t Begin, uint64_t End) { 
-
-    for (auto CurrentPage = Begin >> 12, EndPage = End >> 12; CurrentPage <= EndPage; CurrentPage++) {
-      CodePages[CurrentPage].push_back(Address);
-    }
+  uintptr_t AddBlockMapping(uint64_t Address, void *Ptr) { 
 
     // Do L1
     auto &L1Entry = reinterpret_cast<BlockCacheEntry*>(L1Pointer)[Address & L1_ENTRIES_MASK];

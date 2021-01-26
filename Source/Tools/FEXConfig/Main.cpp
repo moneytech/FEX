@@ -302,9 +302,10 @@ namespace {
       }
 
       Value = LoadedConfig->Get(FEXCore::Config::ConfigOption::CONFIG_SMC_CHECKS);
-      bool SMCChecks = Value.has_value() && **Value == "1";
-      if (ImGui::Checkbox("SMC Checks", &SMCChecks)) {
-        LoadedConfig->EraseSet(FEXCore::Config::ConfigOption::CONFIG_SMC_CHECKS, SMCChecks ? "1" : "0");
+      auto SMCChecks = Value.has_value() ? (**Value).c_str() : "mman";
+      auto Choices = { "none", "mman", "full" };
+      if (ImGui::ListBox("SMC Checks", &SMCChecks, Choices)) {
+        LoadedConfig->EraseSet(FEXCore::Config::ConfigOption::CONFIG_SMC_CHECKS, SMCChecks);
         ConfigChanged = true;
       }
 

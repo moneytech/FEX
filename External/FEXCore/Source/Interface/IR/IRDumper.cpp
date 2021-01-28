@@ -20,7 +20,7 @@ static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* 
   *out <<  Arg;
 }
 
-static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* IR, CondClassType Arg) {
+  static void PrintArg(std::stringstream *out, [[maybe_unused]] IRListView const* IR, CondClassType Arg) {
   std::array<std::string, 22> CondNames = {
     "EQ",
     "NEQ",

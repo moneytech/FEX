@@ -3,6 +3,10 @@
 #include <FEXCore/Utils/LogManager.h>
 
 namespace FEXCore {
+struct BlockRuntimeInfo {
+  uint64_t HostCode;
+  FEXCore::Core::DebugData DebugData;
+};
 class LookupCache {
 public:
 
@@ -18,7 +22,20 @@ public:
   uintptr_t End() { return 0; }
 
   uintptr_t FindBlock(uint64_t Address) {
-    return FindCodePointerForAddress(Address);
+    if (!FindCodePointerForAddress(Address)) {
+      auto BRI = BlockList.find(Address);
+
+      if (BRI != BlockList.end()) {
+        CacheBlockMapping(Address, BRI->second.HostCode);
+        return BRI->second.HostCode;
+      } else {
+        return 0;
+      }
+    }
+  }
+
+  BlockRuntimeInfo *AddBlock(uint64_t Address) {
+    return &BlockList[Address];
   }
 
   void Erase(uint64_t Address) {
@@ -29,6 +46,9 @@ public:
     for (auto it = lower; it != upper; it = BlockLinks.erase(it)) {
       it->second();
     }
+
+    // Remove from BlockList
+    BlockList.erase(Address);
 
     // Do L1
     auto &L1Entry = reinterpret_cast<LookupCacheEntry*>(L1Pointer)[Address & L1_ENTRIES_MASK];
@@ -54,7 +74,25 @@ public:
     BlockPointers[PageOffset].HostCode = 0;
   }
 
-  uintptr_t AddBlockMapping(uint64_t Address, void *Ptr) { 
+
+  void AddBlockLink(uint64_t GuestDestination, uintptr_t HostLink, const std::function<void()> &delinker) {
+    BlockLinks.insert({{GuestDestination, HostLink}, delinker});
+  }
+
+  void ClearCache();
+  void ClearL2Cache();
+
+  void HintUsedRange(uint64_t Address, uint64_t Size);
+
+  uintptr_t GetL1Pointer() { return L1Pointer; }
+  uintptr_t GetPagePointer() { return PagePointer; }
+  uintptr_t GetVirtualMemorySize() const { return VirtualMemSize; }
+
+  constexpr static size_t L1_ENTRIES = 1 * 1024 * 1024; // Must be a power of 2
+  constexpr static size_t L1_ENTRIES_MASK = L1_ENTRIES - 1;
+
+private:
+  void CacheBlockMapping(uint64_t Address, uintptr_t HostCode) { 
     // Do L1
     auto &L1Entry = reinterpret_cast<LookupCacheEntry*>(L1Pointer)[Address & L1_ENTRIES_MASK];
     if (L1Entry.GuestCode == Address) {
@@ -74,8 +112,9 @@ public:
       // Allocate one now if we can
       uintptr_t NewPageBacking = AllocateBackingForPage();
       if (!NewPageBacking) {
-        // Couldn't allocate, return so the frontend can recover from this
-        return 0;
+        // Couldn't allocate, clear L2 and retry
+        ClearL2Cache();
+        CacheBlockMapping(Address, HostCode);
       }
       Pointers[Address] = NewPageBacking;
       LocalPagePointer = NewPageBacking;
@@ -83,31 +122,12 @@ public:
 
     // Add the new pointer to the page block
     auto BlockPointers = reinterpret_cast<LookupCacheEntry*>(LocalPagePointer);
-    uintptr_t CastPtr = reinterpret_cast<uintptr_t>(Ptr);
 
     // This silently replaces existing mappings
     BlockPointers[PageOffset].GuestCode = FullAddress;
-    BlockPointers[PageOffset].HostCode = CastPtr;
-
-    return CastPtr;
+    BlockPointers[PageOffset].HostCode = HostCode;
   }
 
-  void AddBlockLink(uint64_t GuestDestination, uintptr_t HostLink, const std::function<void()> &delinker) {
-    BlockLinks.insert({{GuestDestination, HostLink}, delinker});
-  }
-
-  void ClearCache();
-
-  void HintUsedRange(uint64_t Address, uint64_t Size);
-
-  uintptr_t GetL1Pointer() { return L1Pointer; }
-  uintptr_t GetPagePointer() { return PagePointer; }
-  uintptr_t GetVirtualMemorySize() const { return VirtualMemSize; }
-
-  constexpr static size_t L1_ENTRIES = 1 * 1024 * 1024; // Must be a power of 2
-  constexpr static size_t L1_ENTRIES_MASK = L1_ENTRIES - 1;
-
-private:
   uintptr_t AllocateBackingForPage() {
     uintptr_t NewBase = AllocateOffset;
     uintptr_t NewEnd = AllocateOffset + SIZE_PER_PAGE;
@@ -173,6 +193,7 @@ private:
   };
 
   std::map<BlockLinkTag, std::function<void()>> BlockLinks;
+  std::map<uint64_t, BlockRuntimeInfo> BlockList;
 
   constexpr static size_t CODE_SIZE = 128 * 1024 * 1024;
   constexpr static size_t SIZE_PER_PAGE = 4096 * sizeof(LookupCacheEntry);

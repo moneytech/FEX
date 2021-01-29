@@ -457,8 +457,8 @@ namespace FEXCore::Context {
 
   void Context::InitializeThreadData(FEXCore::Core::InternalThreadState *Thread) {
     Thread->CPUBackend->Initialize();
-    Thread->IntBackend->Initialize();
-    Thread->FallbackBackend->Initialize();
+    //Thread->IntBackend->Initialize();
+    //Thread->FallbackBackend->Initialize();
 
     auto IRHandler = [Thread](uint64_t Addr, IR::IREmitter *IR) -> void {
       // Run the passmanager over the IR from the dispatcher
@@ -520,23 +520,23 @@ namespace FEXCore::Context {
     switch (Config.Core) {
     case FEXCore::Config::CONFIG_INTERPRETER:
       State->CPUBackend.reset(FEXCore::CPU::CreateInterpreterCore(this, State, CompileThread));
-      State->IntBackend = State->CPUBackend;
+      //State->IntBackend = State->CPUBackend;
       break;
     case FEXCore::Config::CONFIG_IRJIT:
       State->PassManager->InsertRegisterAllocationPass(DoSRA);
       // Initialization order matters here, the IR JIT may want to have the interpreter created first to get a pointer to its execution function
       // This is useful for JIT to interpreter fallback support
-      State->IntBackend.reset(FEXCore::CPU::CreateInterpreterCore(this, State, CompileThread));
+      //State->IntBackend.reset(FEXCore::CPU::CreateInterpreterCore(this, State, CompileThread));
       State->CPUBackend.reset(FEXCore::CPU::CreateJITCore(this, State, CompileThread));
       break;
     case FEXCore::Config::CONFIG_CUSTOM:      State->CPUBackend.reset(CustomCPUFactory(this, &State->State)); break;
     default: LogMan::Msg::A("Unknown core configuration");
     }
 
-    if (!State->IntBackend) {
-      State->IntBackend.reset(FEXCore::CPU::CreateInterpreterCore(this, State, CompileThread));
-    }
-    State->FallbackBackend.reset(FallbackCPUFactory(this, &State->State));
+    //if (!State->IntBackend) {
+      //State->IntBackend.reset(FEXCore::CPU::CreateInterpreterCore(this, State, CompileThread));
+    //}
+    //State->FallbackBackend.reset(FallbackCPUFactory(this, &State->State));
   }
 
   FEXCore::Core::InternalThreadState* Context::CreateThread(FEXCore::Core::CPUState *NewThreadState, uint64_t ParentTID) {
@@ -557,7 +557,7 @@ namespace FEXCore::Context {
 
     InitializeCompiler(Thread, false);
 
-    LogMan::Throw::A(!Thread->FallbackBackend->NeedsOpDispatch(), "Fallback CPU backend must not require OpDispatch");
+    //LogMan::Throw::A(!Thread->FallbackBackend->NeedsOpDispatch(), "Fallback CPU backend must not require OpDispatch");
     return Thread;
   }
 
@@ -568,7 +568,7 @@ namespace FEXCore::Context {
   void Context::ClearCodeCache(FEXCore::Core::InternalThreadState *Thread, bool AlsoClearIRCache) {
     Thread->LookupCache->ClearCache();
     Thread->CPUBackend->ClearCache();
-    Thread->IntBackend->ClearCache();
+    //Thread->IntBackend->ClearCache();
 
     if (AlsoClearIRCache) {
       Thread->IRLists.clear();
@@ -893,6 +893,7 @@ namespace FEXCore::Context {
     return 0;
   }
 
+/*
   uintptr_t Context::CompileFallbackBlock(FEXCore::Core::InternalThreadState *Thread, uint64_t GuestRIP) {
     // We have ONE more chance to try and fallback to the fallback CPU backend
     // This will most likely fail since regular code use won't be using a fallback core.
@@ -900,7 +901,7 @@ namespace FEXCore::Context {
     void *CodePtr = Thread->FallbackBackend->CompileCode(nullptr, nullptr, nullptr);
     AddBlockMapping(Thread, GuestRIP, CodePtr);
     return (uintptr_t)CodePtr;
-  }
+  }*/
 
   void Context::ExecutionThread(FEXCore::Core::InternalThreadState *Thread) {
     Core::ThreadData.Thread = Thread;

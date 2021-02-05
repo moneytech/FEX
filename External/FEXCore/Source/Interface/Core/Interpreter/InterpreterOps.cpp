@@ -410,6 +410,7 @@ enum ABI {
   ABI_Invalid = 0,
   ABI_U8_IROp,
   ABI_VOID_IROpThread,
+  ABI_F80_F80F80,
   
   ABI_Count,
 
@@ -480,6 +481,20 @@ struct ABIInfo<ABI_VOID_IROpThread> {
   using FunctionType = ReturnType(*)(FEXCore::IR::IROp_Header *IROp, FEXCore::Core::InternalThreadState *Thread);
 };
 
+template<>
+struct ABIInfo<ABI_F80_F80F80> {
+  static constexpr ABIParam Return = { ABIA_ARG_RV, ABIT_F80 };
+  static constexpr std::array<ABIParam, 2> Arguments {
+    {
+      { ABIA_ARG_0, ABIT_F80 },
+      { ABIA_ARG_1, ABIT_F80 }
+    }
+  };
+
+  using ReturnType = X80SoftFloat;
+  using FunctionType = ReturnType(*)(X80SoftFloat Src1, X80SoftFloat Src2);
+};
+
 void GetDecode(FEXCore::IR::IROps Op, IR::IROp_Header *IROp, std::function<void(int Abi, uintptr_t JitHandler)> HandleOp) {
   switch(Op) {
     case IR::OP_VALIDATECODE: {
@@ -499,6 +514,13 @@ void GetDecode(FEXCore::IR::IROps Op, IR::IROp_Header *IROp, std::function<void(
       HandleOp(ABI_VOID_IROpThread, (uintptr_t)(ABIInfo<ABI_VOID_IROpThread>::FunctionType)[](IR::IROp_Header *IROp, FEXCore::Core::InternalThreadState *Thread) {
         auto Op = IROp->C<IR::IROp_RemoveCodeEntry>();
         Thread->CTX->RemoveCodeEntry(Thread, Op->RIP);
+      });
+      break;
+    }
+
+    case IR::OP_F80ADD: {
+      HandleOp(ABI_F80_F80F80, (uintptr_t)(ABIInfo<ABI_F80_F80F80>::FunctionType)[](X80SoftFloat Src1, X80SoftFloat Src2) {
+        return X80SoftFloat::FADD(Src1, Src2);
       });
       break;
     }
@@ -4315,13 +4337,15 @@ void InterpreterOps::InterpretIR(FEXCore::Core::InternalThreadState *Thread, FEX
             break;
           }
           case IR::OP_F80ADD: {
-            auto Op = IROp->C<IR::IROp_F80Add>();
-            X80SoftFloat Src1 = *GetSrc<X80SoftFloat*>(SSAData, Op->Header.Args[0]);
-            X80SoftFloat Src2 = *GetSrc<X80SoftFloat*>(SSAData, Op->Header.Args[1]);
-            X80SoftFloat Tmp;
-            Tmp = X80SoftFloat::FADD(Src1, Src2);
-
-            memcpy(GDP, &Tmp, sizeof(X80SoftFloat));
+            GetDecode(IR::OP_F80ADD, IROp, [IROp, SSAData, WrapperOp](int Abi, uintptr_t JitHandler) {
+              LogMan::Throw::A(Abi == ABI_F80_F80F80, "Unexpected Abi");
+              auto Op = IROp->C<IR::IROp_F80Add>();
+              auto Src1 = *GetSrc<X80SoftFloat*>(SSAData, Op->Header.Args[0]);
+              auto Src2 = *GetSrc<X80SoftFloat*>(SSAData, Op->Header.Args[1]);
+              X80SoftFloat Tmp;
+              Tmp = ((ABIInfo<ABI_F80_F80F80>::FunctionType)JitHandler)(Src1, Src2);
+              memcpy(GDP, &Tmp, sizeof(X80SoftFloat));
+            });
             break;
           }
           case IR::OP_F80SUB: {

@@ -633,6 +633,9 @@ void *JITCore::CompileCode([[maybe_unused]] FEXCore::IR::IRListView const *IR, [
 
     mov(rax, (uintptr_t)ThreadSharedData.InterpreterFallbackHelperAddress);
     jmp(rax);
+
+    // Add a main Entrypoint
+    DebugData->Entrypoints.push_back({0, Entry });
   } else {
     LogMan::Throw::A(RAData != nullptr, "Needs RA");
 

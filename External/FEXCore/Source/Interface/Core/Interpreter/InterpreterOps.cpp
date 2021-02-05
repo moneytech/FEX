@@ -406,6 +406,110 @@ static void SignalReturn(FEXCore::Core::InternalThreadState *Thread) {
   std::unexpected();
 }
 
+enum ABI {
+  ABI_Invalid = 0,
+  ABI_U8_IROp,
+  ABI_VOID_IROpThread,
+  
+  ABI_Count,
+
+  ABI_Bool_IROp = ABI_U8_IROp,
+};
+
+enum ABIArgN {
+  ABIA_ARG_0 = 0,
+  ABIA_ARG_1,
+  ABIA_ARG_2,
+  ABIA_ARG_3,
+  ABIA_ARG_4,
+  ABIA_ARG_5,
+  ABIA_ARG_6,
+  ABIA_ARG_7,
+  
+  ABIA_IROp,
+  ABIA_Thread,
+  ABIA_ARG_RV,
+};
+
+enum ABIType {
+  ABIT_VOID = 0,
+  ABIT_U8,
+  ABIT_U16,
+  ABIT_U32,
+  ABIT_U64,
+  ABIT_F32,
+  ABIT_F64,
+  ABIT_F80,
+  ABIT_SIMD32,
+  ABIT_SIMD64,
+  ABIT_SIMD128,
+};
+
+struct ABIParam {
+  ABIArgN ArgN;
+  ABIType Type;
+};
+
+template<ABI abi>
+struct ABIInfo {
+
+};
+
+template<>
+struct ABIInfo<ABI_U8_IROp> {
+  static constexpr ABIParam Return = { ABIA_ARG_RV, ABIT_U8 };
+  static constexpr std::array<ABIParam, 1> Arguments {
+    { { ABIA_IROp, ABIT_U64 } }
+  };
+
+  using ReturnType = uint8_t;
+  using FunctionType = ReturnType(*)(FEXCore::IR::IROp_Header *IROp);
+};
+
+template<>
+struct ABIInfo<ABI_VOID_IROpThread> {
+  static constexpr ABIParam Return = { ABIA_ARG_RV, ABIT_VOID };
+  static constexpr std::array<ABIParam, 2> Arguments {
+    {
+      { ABIA_IROp, ABIT_U64 },
+      { ABIA_Thread, ABIT_U64 }
+    }
+  };
+
+  using ReturnType = void;
+  using FunctionType = ReturnType(*)(FEXCore::IR::IROp_Header *IROp, FEXCore::Core::InternalThreadState *Thread);
+};
+
+void GetDecode(FEXCore::IR::IROps Op, IR::IROp_Header *IROp, std::function<void(int Abi, uintptr_t JitHandler)> HandleOp) {
+  switch(Op) {
+    case IR::OP_VALIDATECODE: {
+      HandleOp(ABI_U8_IROp,(uintptr_t)(ABIInfo<ABI_U8_IROp>::FunctionType)[](IR::IROp_Header *IROp){
+        auto Op = IROp->C<IR::IROp_ValidateCode>();
+
+        if (memcmp((void*)Op->CodePtr, &Op->CodeOriginalLow, Op->CodeLength) != 0) {
+          return (ABIInfo<ABI_U8_IROp>::ReturnType)1;
+        } else {
+          return (ABIInfo<ABI_U8_IROp>::ReturnType)0;
+        }
+      });
+      break;
+    }
+
+    case IR::OP_REMOVECODEENTRY: {
+      HandleOp(ABI_VOID_IROpThread, (uintptr_t)(ABIInfo<ABI_VOID_IROpThread>::FunctionType)[](IR::IROp_Header *IROp, FEXCore::Core::InternalThreadState *Thread) {
+        auto Op = IROp->C<IR::IROp_RemoveCodeEntry>();
+        Thread->CTX->RemoveCodeEntry(Thread, Op->RIP);
+      });
+      break;
+    }
+      
+    default: {
+      LogMan::Msg::A("Unhandled IR::OP_* %d", Op);
+      break;
+    }
+  }
+}
+
 void InterpreterOps::InterpretIR(FEXCore::Core::InternalThreadState *Thread, FEXCore::IR::IRListView *CurrentIR, FEXCore::Core::DebugData *DebugData) {
   volatile void* stack = alloca(0);
 
@@ -454,19 +558,18 @@ void InterpreterOps::InterpretIR(FEXCore::Core::InternalThreadState *Thread, FEX
     } BlockResults{};
 
     auto HandleBlock = [&](OrderedNode *BlockNode) {
-      for (auto [CodeNode, IROp] : CurrentIR->GetCode(BlockNode)) {
+      for (auto [CodeNodeDecompose, IROpDecompose] : CurrentIR->GetCode(BlockNode)) {
+        auto CodeNode = CodeNodeDecompose;
+        auto IROp = IROpDecompose;
         OrderedNodeWrapper WrapperOp = CodeNode->Wrapped(ListBegin);
         uint8_t OpSize = IROp->Size;
 
         switch (IROp->Op) {
           case IR::OP_VALIDATECODE: {
-            auto Op = IROp->C<IR::IROp_ValidateCode>();
-            
-            if (memcmp((void*)Op->CodePtr, &Op->CodeOriginalLow, Op->CodeLength) != 0) {
-              GD = 1;
-            } else {
-              GD = 0;
-            }
+            GetDecode(IR::OP_VALIDATECODE, IROp, [IROp, SSAData, WrapperOp](int Abi, uintptr_t JitHandler) {
+              LogMan::Throw::A(Abi == ABI_U8_IROp, "Unexpected Abi");
+              GD = ((ABIInfo<ABI_U8_IROp>::FunctionType)JitHandler)(IROp);
+            });
             break;
           }
 

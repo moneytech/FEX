@@ -37,6 +37,8 @@ namespace {
 
   static uint64_t fasthash64(const void *buf, size_t len, uint64_t seed)
   {
+    //printf("hash: %p, %ld\n", buf, len);
+
     const uint64_t    m = 0x880355f21e6d1965ULL;
     const uint64_t *pos = (const uint64_t *)buf;
     const uint64_t *end = pos + (len / 8);
@@ -608,6 +610,7 @@ namespace FEXCore::Context {
       }
     }
 
+    //printf("%lx: %ld\n", Address, Entrypoints.size());
     for (const auto& [EntryGuest, EntryHost]: Entrypoints) {
       
      if (Thread->LookupCache->FindBlock(Address + EntryGuest)) {
@@ -931,7 +934,9 @@ namespace FEXCore::Context {
     DebugData->Entrypoints.clear();
 
     // Attempt to get the CPU backend to compile this code
-    return { Thread->CPUBackend->CompileCode(IRList, DebugData, RAData), IRList, DebugData, RAData, GeneratedIR, MinAddr, MaxAddr};
+    auto MainEntryPoint = Thread->CPUBackend->CompileCode(IRList, DebugData, RAData);
+    LogMan::Throw::A(DebugData->Entrypoints.size() != 0, "Must define at least one entrypoint");
+    return { MainEntryPoint, IRList, DebugData, RAData, GeneratedIR, MinAddr, MaxAddr };
   }
 
   bool Context::LoadAOTIRCache(std::istream &stream) {

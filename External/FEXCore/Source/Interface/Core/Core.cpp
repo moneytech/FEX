@@ -78,7 +78,7 @@ namespace FEXCore::CPU {
   }
 }
 
-static std::mutex AOTCacheLock;
+static std::mutex AOTIRCacheLock;
 
 namespace FEXCore::Core {
 struct ThreadLocalData {
@@ -274,8 +274,8 @@ namespace FEXCore::Context {
 
     SaveEntryList();
 
-    // AOTCache needs manual clear
-    for (auto &Mod: AOTCache) {
+    // AOTIRCache needs manual clear
+    for (auto &Mod: AOTIRCache) {
       for (auto &Entry: Mod.second) {
         delete Entry.second.IR;
         free(Entry.second.RAData);
@@ -840,14 +840,14 @@ namespace FEXCore::Context {
     }
 
     if (IRList == nullptr && Config.AOTIRLoad) {
-      std::lock_guard<std::mutex> lk(AOTCacheLock);
+      std::lock_guard<std::mutex> lk(AOTIRCacheLock);
       auto file = AddrToFile.lower_bound(GuestRIP);
       if (file != AddrToFile.begin()) {
         --file;
-        auto Mod = (decltype(AOTCache)::value_type::second_type*) file->second.CachedFileEntry;
+        auto Mod = (decltype(AOTIRCache)::value_type::second_type*) file->second.CachedFileEntry;
 
         if (Mod == nullptr) {
-          file->second.CachedFileEntry = Mod = &AOTCache[file->second.fileid];
+          file->second.CachedFileEntry = Mod = &AOTIRCache[file->second.fileid];
         }
 
         auto AOTEntry = Mod->find(GuestRIP - file->second.Start + file->second.Offset);
@@ -897,7 +897,7 @@ namespace FEXCore::Context {
   }
 
   bool Context::LoadAOTIRCache(std::istream &stream) {
-    std::lock_guard<std::mutex> lk(AOTCacheLock);
+    std::lock_guard<std::mutex> lk(AOTIRCacheLock);
     uint64_t tag;
     stream.read((char*)&tag, sizeof(tag));
     if (!stream || tag != 0xDEADBEEFC0D30002)
@@ -920,7 +920,7 @@ namespace FEXCore::Context {
       if (!stream)
         return false;
 
-      auto &Mod = AOTCache[Module];
+      auto &Mod = AOTIRCache[Module];
 
       uint64_t FnCount;
       stream.read((char*)&FnCount, sizeof(FnCount));
@@ -980,11 +980,11 @@ namespace FEXCore::Context {
   }
 
   bool Context::WriteAOTIRCache(std::function<std::unique_ptr<std::ostream>(const std::string&)> CacheWriter) {
-    std::lock_guard<std::mutex> lk(AOTCacheLock);
+    std::lock_guard<std::mutex> lk(AOTIRCacheLock);
 
     bool rv = true;
 
-    for (auto AOTModule: AOTCache) {
+    for (auto AOTModule: AOTIRCache) {
       if (AOTModule.second.size() == 0) {
         continue;
       }
@@ -1094,11 +1094,11 @@ namespace FEXCore::Context {
 
       // Add to AOT cache if aot generation is enabled
       if (Config.AOTIRCapture && RAData && MinAddress) {
-        std::lock_guard<std::mutex> lk(AOTCacheLock);
+        std::lock_guard<std::mutex> lk(AOTIRCacheLock);
         
         RAData->IsShared = true;
         IRList->IsShared = true;
-        
+
         auto len = MaxAddress - MinAddress;
         auto hash = fasthash64((void*)MinAddress, len, 0);
         
@@ -1106,7 +1106,7 @@ namespace FEXCore::Context {
         if (file != AddrToFile.begin()) {
           --file;
           if (file->second.Start <= MinAddress && (file->second.Start + file->second.Len) > MaxAddress) {
-            AOTCache[file->second.fileid].insert({GuestRIP - file->second.Start + file->second.Offset, {MinAddress - file->second.Start + file->second.Offset, len, hash, IRList, RAData}});
+            AOTIRCache[file->second.fileid].insert({GuestRIP - file->second.Start + file->second.Offset, {MinAddress - file->second.Start + file->second.Offset, len, hash, IRList, RAData}});
           }
         }
       }
@@ -1272,7 +1272,7 @@ namespace FEXCore::Context {
 
       AddrToFile.insert({ Base, { Base, Size, Offset, fileid, nullptr } });
 
-      if (Config.AOTIRLoad && !AOTCache.contains(fileid) && AOTIRLoader) {
+      if (Config.AOTIRLoad && !AOTIRCache.contains(fileid) && AOTIRLoader) {
         auto stream = AOTIRLoader(fileid);
         if (*stream) {
           LoadAOTIRCache(*stream);
